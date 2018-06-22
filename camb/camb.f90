@@ -336,7 +336,6 @@
 
     P%Transfer%high_precision=.false.
     P%Transfer%accurate_massive_neutrinos = .false.
-
     P%OutputNormalization = outNone
 
     P%WantScalars = .true.

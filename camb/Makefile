@@ -5,7 +5,8 @@ FISHER=
 
 #Will detect ifort/gfortran or edit for your compiler
 ifneq ($(COMPILER),gfortran)
-ifortErr = $(shell which ifort >/dev/null; echo $$?)
+ifortErr = 1
+#$(shell which ifort >/dev/null; echo $$?)
 else
 ifortErr = 1
 endif
@@ -14,7 +15,7 @@ ifeq "$(ifortErr)" "0"
 #Intel compiler
 # For OSX replace shared by dynamiclib
 F90C     = ifort
-FFLAGS = -fast -W0 -WB -fpp
+FFLAGS = -fast -W0 -WB -fpp 
 SFFLAGS = -shared -fpic
 DEBUGFLAGS = -g -check all -check noarg_temp_created -traceback -fpp -fpe0
 
@@ -44,20 +45,13 @@ COMPILER = gfortran
 F90C     = gfortran
 SFFLAGS =  -shared -fPIC
 
-FFLAGS =  -O3 -fopenmp -ffast-math -fmax-errors=4
-#DEBUGFLAGS = -cpp -g -fbounds-check -fbacktrace -ffree-line-length-none -fmax-errors=4 -ffpe-trap=invalid,overflow,zero
+FFLAGS =  -O3 -fopenmp -ffast-math -fmax-errors=4 -ffree-line-length-none
+DEBUGFLAGS = -cpp -g -fbounds-check -fbacktrace -ffree-line-length-none -fmax-errors=4 -ffpe-trap=invalid,overflow,zero
 MODOUT =  -J$(OUTPUT_DIR)
 SMODOUT = -J$(DLL_DIR)
 
-#native optimization does not work on Mac or heterogeneous clusters
-CLUSTER_SAFE ?= 0
-ifneq ($(CLUSTER_SAFE), 0)
-NONNATIVE = 1
-endif
-ifeq ($(shell uname -s),Darwin)
-NONNATIVE = 1
-endif
-ifndef NONNATIVE
+ifneq ($(shell uname -s),Darwin)
+#native optimization does not work on Mac
 FFLAGS+=-march=native
 endif
 endif
@@ -111,7 +105,7 @@ HEALPIXDIR    ?= /usr/local/healpix
 
 ifneq ($(FISHER),)
 FFLAGS += -DFISHER
-EXTCAMBFILES = $(OUTPUT_DIR)/Matrix_utils.o
+EXTCAMBFILES = Matrix_utils.o
 else
 EXTCAMBFILES =
 endif

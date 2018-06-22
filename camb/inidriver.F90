@@ -14,12 +14,10 @@
     use Bispectrum
     use CAMBmain
     use NonLinear
-    
 !******************************
 !* MGCAMB:
     use mgvariables
 !******************************
-
 #ifdef NAGF95
     use F90_UNIX
 #endif
@@ -35,8 +33,6 @@
         MatterPowerFileNames(max_transfer_redshifts), outroot, version_check
     real(dl) output_factor, nmassive
 
-    !auxiliary variable for coupling bins
-    character(LEN=Ini_max_string_len) binnum
 #ifdef WRITE_FITS
     character(LEN=Ini_max_string_len) FITSfilename
 #endif
@@ -60,7 +56,6 @@
     call CAMB_SetDefParams(P)
 
     P%WantScalars = Ini_Read_Logical('get_scalar_cls')
-    P%want_background = Ini_Read_Logical('get_background')
     P%WantVectors = Ini_Read_Logical('get_vector_cls',.false.)
     P%WantTensors = Ini_Read_Logical('get_tensor_cls',.false.)
 
@@ -184,6 +179,16 @@ else if (model ==10) then
 beta0 = Ini_Read_Double('beta0', 0.d0)
 A_2 = Ini_Read_Double('A2',0.d0)
 
+!Planck-----------------------------------------
+else if (model ==11) then
+E11_mg = Ini_Read_Double('E11', 0.d0)
+E22_mg = Ini_Read_Double('E22',0.d0)
+
+else if (model ==12) then
+E12_mg = Ini_Read_Double('E12', 0.d0)
+E21_mg = Ini_Read_Double('E21',0.d0)
+!-----------------------------------------------
+
 else if (model /= 0) then
 print*, '***please choose a model***'
 stop
@@ -202,39 +207,6 @@ end if
         P%omegav = Ini_Read_Double('omega_lambda')
         P%omegan = Ini_Read_Double('omega_neutrino')
     end if
-
-
-    !reading parameters for binning
-    P%model = Ini_Read_Int('model_bin',1)
-    P%endred     = Ini_Read_Double('ending_z',10._dl)
-
-    
-    P%nb = Ini_Read_Int('num_bins',1)
-    P%w0 = Ini_Read_Int('bin_w_0',-1)
-    if (.not.allocated(P%zb)) allocate(P%zb(P%nb),P%wb(P%nb))
-    do i=1,P%nb
-       write(binnum,*) i
-       P%zb(i) = Ini_Read_Double('bin_z_'//trim(adjustl(binnum)))
-       P%wb(i) = Ini_Read_Double('bin_w_'//trim(adjustl(binnum)),0._dl)
-    end do
-    if (P%zb(P%nb).gt.P%endred) then
-       write(*,*) 'WARNING!!!'
-       write(*,*) 'final redshift for ODE (',P%endred,') is lower than last bin margin ',P%zb(P%nb)
-       write(*,*) 'You need final redshift to be higher. Fix this and re-run the code. '
-       stop
-    end if
-
-    !reading specific parameters for different models
-    if (P%model.eq.2) P%s= Ini_Read_Double('smooth_factor',10._dl)
-
-    if (P%model.eq.3) P%corrlen = Ini_Read_Double('correlation_length',1._dl)
-    
-    
-    if (P%model.gt.3) then
-       write(*,*) 'ONLY BINNED COUPLING AND GP IMPLEMENTED AT THE MOMENT'
-       write(*,*) 'PLEASE WAIT FOR MORE FANCY STUFF!'
-    end if
-
 
     P%tcmb   = Ini_Read_Double('temp_cmb',COBE_CMBTemp)
     P%yhe    = Ini_Read_Double('helium_fraction',0.24_dl)
@@ -270,17 +242,12 @@ end if
     !JD 08/13 begin changes for nonlinear lensing of CMB + LSS compatibility
     !P%Transfer%redshifts -> P%Transfer%PK_redshifts and P%Transfer%num_redshifts -> P%Transfer%PK_num_redshifts
     !in the P%WantTransfer loop.
-    if (((P%NonLinear==NonLinear_lens .or. P%NonLinear==NonLinear_both) .and. P%DoLensing) .or. P%PK_WantTransfer) then
-        P%Transfer%high_precision=  Ini_Read_Logical('transfer_high_precision',.false.)
+    if (((P%NonLinear==NonLinear_lens .or. P%NonLinear==NonLinear_both) .and. P%DoLensing) &
+        .or. P%PK_WantTransfer) then
+    P%Transfer%high_precision=  Ini_Read_Logical('transfer_high_precision',.false.)
     else
         P%transfer%high_precision = .false.
     endif
-    if (P%PK_WantTransfer) then
-        P%Transfer%accurate_massive_neutrinos = Ini_Read_Logical('accurate_massive_neutrino_transfers',.false.)
-    else
-        P%Transfer%accurate_massive_neutrinos = .false.
-    end if
-
     if (P%NonLinear/=NonLinear_none) call NonLinear_ReadParams(DefIni)
 
     if (P%PK_WantTransfer)  then

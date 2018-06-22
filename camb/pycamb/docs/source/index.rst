@@ -23,7 +23,6 @@ Main high-level modules:
 
    camb
    model
-   symbolic
 
 Other modules:
 
@@ -36,7 +35,6 @@ Other modules:
    recombination
    correlations
    postborn
-   emission_angle
 
 * :ref:`genindex`
 

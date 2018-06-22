@@ -121,7 +121,7 @@
     Type(ClTransferData), pointer :: ThisCT
 
     public cmbmain, ALens, ClTransferToCl, InitVars, GetTauStart
-
+    
     contains
 
 
@@ -660,7 +660,7 @@
     type(EvolutionVars) EV
 
     EV%q=Evolve_q%points(q_ix)
-    
+
     if (fixq/=0._dl) then
         EV%q= min(500._dl,fixq) !for testing
     end if
@@ -1031,11 +1031,9 @@
             Src(EV%q_ix,1:SourceNum,j) = 0
         else
             call GaugeInterface_EvolveTens(EV,tau,yt,tauend,tol1,ind,c,wt)
-
-
-!FGmod: ATTENZIONE DA RIMETTERE
-!            call outputt(EV,yt,EV%nvart,tau,Src(EV%q_ix,CT_Temp,j),&
-!                Src(EV%q_ix,CT_E,j),Src(EV%q_ix,CT_B,j))
+!FGmod
+            call outputt(EV,yt,EV%nvart,j,tau,Src(EV%q_ix,CT_Temp,j),&
+                Src(EV%q_ix,CT_E,j),Src(EV%q_ix,CT_B,j))
         end if
     end do
 
@@ -1081,10 +1079,9 @@
             Src(EV%q_ix,1:SourceNum,j) = 0
         else
             call dverk(EV,EV%nvarv,derivsv,tau,yv,tauend,tol1,ind,c,EV%nvarv,wt) !tauend
-
-!FGmod: ATTENZIONE DA RIMETTERE
-!            call outputv(EV,yv,EV%nvarv,tau,Src(EV%q_ix,CT_Temp,j),&
-!                Src(EV%q_ix,CT_E,j),Src(EV%q_ix,CT_B,j))
+!FGmod
+            call outputv(EV,yv,EV%nvarv,j,tau,Src(EV%q_ix,CT_Temp,j),&
+                Src(EV%q_ix,CT_E,j),Src(EV%q_ix,CT_B,j))
         end if
     end do
 
@@ -2144,6 +2141,7 @@
     integer nscal, i
 
     allocate(ks(CTrans%q%npoints),dlnks(CTrans%q%npoints), pows(CTrans%q%npoints))
+
     do pix=1,CP%InitPower%nn
         do q_ix = 1, CTrans%q%npoints
             if (CP%flat) then
@@ -2163,7 +2161,6 @@
         do j=1,CTrans%ls%l0
             !Integrate dk/k Delta_l_q**2 * Power(k)
             ell = real(CTrans%ls%l(j),dl)
-
             if (j<= CTrans%max_index_nonlimber) then
                 do q_ix = 1, CTrans%q%npoints
                     if (.not.(CP%closed.and.nint(CTrans%q%points(q_ix)*CP%r)<=CTrans%ls%l(j))) then
@@ -2180,12 +2177,12 @@
                             do w_ix=1,3 + num_redshiftwindows
                                 Delta1= CTrans%Delta_p_l_k(w_ix,j,q_ix)
                                 do w_ix2=w_ix,3 + num_redshiftwindows
+
                                     if (w_ix2>= 3.and. w_ix>=3) then
                                         !Skip if the auto or cross-correlation is included in direct Limber result
                                         !Otherwise we need to include the sources e.g. to get counts-Temperature correct
                                         if (CTrans%limber_l_min(w_ix2)/= 0 .and. j>=CTrans%limber_l_min(w_ix2) &
                                             .and. CTrans%limber_l_min(w_ix)/= 0 .and. j>=CTrans%limber_l_min(w_ix)) cycle
-
                                     end if
                                     Delta2=  CTrans%Delta_p_l_k(w_ix2,j,q_ix)
                                     iCl_Array(j,w_ix,w_ix2,pix) = iCl_Array(j,w_ix,w_ix2,pix)+Delta1*Delta2*apowers*dlnk
@@ -2261,7 +2258,6 @@
         end do
         !OMP END PARAllEl DO
     end do
-
     deallocate(ks,pows,dlnks)
 
     end subroutine CalcScalCls

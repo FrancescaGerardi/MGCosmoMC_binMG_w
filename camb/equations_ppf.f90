@@ -33,7 +33,9 @@
   real(dl) :: beta_star, a_star, xi_star  ! for model 7 (symmetron)
   real(dl) :: beta0, xi0, DilR, DilS, A_2 ! for model 8 and 10 (dilaton)
   real(dl) :: F_R0, FRn                   ! for model 9 (large curvature f(R))
-
+!MMmod: comparison with Planck paper arxiv:1502.01590v2-------------  
+  real(dl)  :: E11_mg, E22_mg, E12_mg, E21_mg ! for model 11 and 12 (Planck parametrization)
+!------------------------------------------------------------
  
 contains
 !-----------------------------------------------
@@ -47,7 +49,10 @@ function MGMu(a,adotoa,k2,model)
     real(dl) :: LKA2 ! \lambda_1^2 k^2 a^s
     real(dl) :: t1, t2, t1dot, t2dot
     real(dl) :: omm, ommdot
-
+!MMmod:comparison with Planck paper arxiv:1502.01590v2
+    real(dl) :: ode, odedot
+    real(dl) :: sumo
+!-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5 .or.model==6) then
         LKA1 = lambda1_2 * k2 * a**ss
@@ -74,6 +79,19 @@ function MGMu(a,adotoa,k2,model)
 
         MGMu = (k2 + t1 + t2)/(k2 + t2)
 
+!MMmod----------------------------------------------
+!Planck parametrizations
+    else if (model == 11) then
+        sumo = CP%omegab+CP%omegac
+        ode    = (1-(sumo))/((sumo)*a**(-3.d0)+(1-(sumo)))
+        odedot = 3*(sumo)*(1-(sumo))*a**(-3.d0)*adotoa/(((sumo)*a**(-3.d0)+(1-(sumo)))**2.d0)
+
+        MGMu = 1 + E11_mg * ode
+
+    else if (model == 12) then
+
+        MGMu = 1 + E11_mg + E12_mg * (1-a)
+!--------------------------------------------------
     end if
 end function MGMu
 
@@ -89,6 +107,10 @@ function MGMuDot(a,adotoa,k2,Hdot,model)
     real(dl) :: k2, t1,t2,t1dot,t2dot
     real(dl) :: omm, ommdot
     real(dl) :: Hdot
+!MMmod:comparison with Planck paper arxiv:1502.01590v2
+    real(dl) :: ode, odedot
+    real(dl) :: sumo
+!-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
         LKA1 = lambda1_2 * k2 * a**ss
@@ -119,6 +141,20 @@ function MGMuDot(a,adotoa,k2,Hdot,model)
         t2dot = (2.d0*a**2.d0)*(MGM(a,adotoa, model)*MGMDot(a,adotoa, Hdot, model) + (MGM(a,adotoa, model)**2.d0) *adotoa)
 
         MGMuDot = (t1dot*(k2 + t2) - t1*t2dot)/((k2 + t2)**2.d0)
+!MMmod----------------------------------------------
+!Planck parametrizations
+    else if (model == 11) then
+        sumo = CP%omegab+CP%omegac
+        ode    = (1-(sumo))/((sumo)*a**(-3.d0)+(1-(sumo)))
+        odedot = 3*(sumo)*(1-(sumo))*a**(-3.d0)*adotoa/(((sumo)*a**(-3.d0)+(1-(sumo)))**2.d0)
+
+        MGMuDot = E11_mg*odedot
+
+    else if (model == 12) then
+
+        MGMuDot = -E22_mg*a*adotoa
+!--------------------------------------------------
+
 
     end if
 
@@ -128,12 +164,19 @@ end function MGMuDot
 !-----------------------------------------------
 ! gamma(a,k) function
 function MGGamma(a,adotoa,k2, model)
+!da MM---------------------------------------
+    use ModelParams
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a, adotoa, k2, MGGamma
     real(dl) :: LKA1 ! \lambda_1^2 k^2 a^s
     real(dl) :: LKA2 ! \lambda_1^2 k^2 a^s
     real(dl) :: t1,t2, t1dot, t2dot
+!MMmod:comparison with Planck paper arxiv:1502.01590v2
+    real(dl) :: ode, odedot
+    real(dl) :: sumo
+!-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
         LKA1 = lambda1_2 * k2 * a**ss
@@ -152,6 +195,20 @@ function MGGamma(a,adotoa,k2, model)
 
         MGGamma = (k2 - t1 + t2)/(k2 + t1 + t2)
 
+!MMmod----------------------------------------------
+!Planck parametrizations
+    else if (model == 11) then
+        sumo = CP%omegab+CP%omegac
+        ode    = (1-(sumo))/((sumo)*a**(-3.d0)+(1-(sumo)))
+        odedot = 3*(sumo)*(1-(sumo))*a**(-3.d0)*adotoa/(((sumo)*a**(-3.d0)+(1-(sumo)))**2.d0)
+
+        MGGamma = 1 + E21_mg * ode
+
+    else if (model == 12) then
+
+        MGGamma = 1 + E21_mg + E22_mg * (1-a)
+!--------------------------------------------------
+
     end if
 
 end function MGGamma
@@ -160,6 +217,9 @@ end function MGGamma
 !-----------------------------------------------
 ! \dot{gamma}(a,k) function
 function MGGammaDot(a,adotoa,k2,model)
+!da MM---------------------------------------
+    use ModelParams
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a, adotoa, MGGammaDot
@@ -168,6 +228,10 @@ function MGGammaDot(a,adotoa,k2,model)
     real(dl) :: k2
     real(dl) :: t1,t2,t1dot,t2dot
     real(dl) :: Hdot
+!MMmod:comparison with Planck paper arxiv:1502.01590v2
+    real(dl) :: ode, odedot
+    real(dl) :: sumo
+!-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
         LKA1 = lambda1_2 * k2 * a**ss
@@ -188,6 +252,20 @@ function MGGammaDot(a,adotoa,k2,model)
         t2dot = (2.d0*a**2.d0)*(MGM(a,adotoa, model)*MGMDot(a,adotoa, Hdot, model) + (MGM(a,adotoa, model)**2.d0) *adotoa)
 
         MGGammaDot = 2.d0*(t1*t2dot-t1dot*(k2 + t2))/((k2 + t1 + t2)**2.d0)
+
+!MMmod----------------------------------------------
+!Planck parametrizations
+    else if (model == 11) then
+        sumo = CP%omegab+CP%omegac
+        ode    = (1-(sumo))/((sumo)*a**(-3.d0)+(1-(sumo)))
+        odedot = 3*(sumo)*(1-(sumo))*a**(-3.d0)*adotoa/(((sumo)*a**(-3.d0)+(1-(sumo)))**2.d0)
+
+        MGGammaDot = E21_mg*odedot
+
+    else if (model == 12) then
+
+        MGGammaDot = -E22_mg*a*adotoa
+!--------------------------------------------------
 
     end if
 
@@ -472,7 +550,6 @@ end module mgvariables
     logical :: cpl
 
     integer :: i
-
     cpl=.false.  !se usare o meno cpl parametrization
   
     !z= (1/a) -1
@@ -1780,7 +1857,6 @@ end module mgvariables
     real(dl) w_eff
     real(dl) hdotoh,ppiedot
     integer, intent(in) :: notused_custom_sources !must be zero in _ppf version
-!    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
     
 !*********************************************************
 !* MGCAMB:
@@ -1789,6 +1865,9 @@ end module mgvariables
 !*********************************************************
 real(dl) adotdota, term1, term2, term3, term4, term5, adotdotdota, Hdotdot, omm, ommdot, ommdotdot
 real(dl) cs2
+!serve?-------------------
+real(dl) opacity, dopacity
+!-------------------------
 real(dl) MG_gamma, MG_gammadot, MG_mu, MG_mudot, etadot
 real(dl) fmu,f1,f2
 real(dl) MG_rhoDelta, MG_alpha, MG_N, MG_D, MG_hdot, Hdot, dgqMG, dgrhoMG
@@ -1890,12 +1969,6 @@ else
    end if
 end if
 
-
-!FGmod-----------------------------------------------------------
-!            write(*,*) 'opac(j)'
-!            write(*,*)  opac(j)
-!----------------------------------------------------------------
-
     if (EV%no_nu_multpoles) then
         if (tempmodel == 0) then
 
@@ -1980,13 +2053,13 @@ end if
 !********************************************************************
 if (tempmodel /= 0) then
  ! MU, GAMMA parametrization
- if (model==1 .or.model==4 .or.model==5.or.model==6 .or. model==7 .or. model==8 .or. model == 9 .or. model == 10) then
+ if (model==1 .or.model==4 .or.model==5 .or.model==6 .or.model==7 .or.model==8 &
+     &.or.model == 9 .or.model == 10 .or.model == 11 .or.model == 12) then
 
 	MG_mu = MGMu(a,adotoa,k2,model)
 	MG_mudot = MGMuDot(a,adotoa,k2,Hdot,model)
 	MG_gamma = MGGamma(a,adotoa,k2,model)
 	MG_gammadot = MGGammaDot(a,adotoa,k2,model)
-
     ! MG_rhoDelta = \kappa a^2 \sum_i \rho_i (\delta_i + 3 adotoa (1+w_i))
     MG_rhoDelta = dgrho + 3._dl * adotoa * dgq/ k
 
@@ -2055,8 +2128,7 @@ if (tempmodel /= 0) then
 
  end if
 
- else !GR limit ( model = 0 )
-
+else !GR limit ( model = 0 )
 
     z=(0.5_dl*dgrho/k + etak)/adotoa
     sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
@@ -2149,7 +2221,8 @@ if(tempmodel == 0 ) then
 ! MG ISW effect
 else
     ! ISW for mu,gamma parametrization
-    if(model==1 .or. model==4 .or. model==5.or. model==6 .or. model == 7 .or. model ==8 .or. model == 9 .or. model ==10) then
+    if(model==1 .or. model==4 .or. model==5.or. model==6 .or. model == 7 .or. model ==8 &
+       &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then
         ISW_MG = - (MG_gammadot* MG_mu + MG_gamma* MG_mudot)*0.5d0/k2 * (dgrho + 2.d0*dgpi) - MG_mu* MG_gamma*0.5d0/k2*&
                  (MG_rhoDeltadot + 2.d0* dgpidot) - MG_mudot*0.5d0/k2*dgrho - MG_mu*0.5d0/k2*MG_rhoDeltadot
 
@@ -2221,20 +2294,20 @@ end if
 if(tempmodel == 0 ) then
 
             sources(3) = -2*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
-else
-if (model==1 .or. model==4 .or. model==5.or. model==6 .or. model == 7 .or. model ==8 .or. model==9 .or. model ==10)&
+else if(model==1 .or. model==4 .or. model==5 .or. model==6 .or. model == 7 .or. model ==8 &
+   &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then
     sources(3) = -MG_mu*(1+MG_gamma)*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
-if(model==2.or.model==3)&
-    sources(3) = -MGQ*(1+MGR)*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
+else if(model==2.or.model==3) then
+       sources(3) = -MGQ*(1+MGR)*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
 end if
 ! MGCAMB mod end
 !*******************************************************
             
             !We include the lensing factor of two here
-        else
+         else
             sources(3) = 0
-        end if
-    end if
+         end if
+     end if
 
 !FGmod-----------------------------------------------------------
 !	    write(*,*) 'sono alla fine di output'
@@ -2244,7 +2317,7 @@ end if
 
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine outputt(EV,yt,n,tau,dt,dte,dtb)
+    subroutine outputt(EV,yt,n,j,tau,dt,dte,dtb)
     !calculate the tensor sources for open and closed case
     use ThermoData
 
@@ -2259,11 +2332,7 @@ end if
     real(dl), dimension(:),pointer :: E,Bprime,Eprime
     real(dl), target :: pol(3),polEprime(3), polBprime(3)
     real(dl) dtauda
-    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
-
-!FG:da rivedere
-!    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
-!        visibility, dvisibility, ddvisibility, exptau, lenswindow)
+    integer j
 
     call derivst(EV,EV%nvart,tau,yt,ytprime)
 
@@ -2287,8 +2356,8 @@ end if
         !  Use the tight-coupling approximation
         a =yt(1)
         adotoa = 1/(a*dtauda(a))
-        pigdot=32._dl/45._dl*k/opacity*(2._dl*adotoa*shear+ytprime(3))
-        pig = 32._dl/45._dl*k/opacity*shear
+        pigdot=32._dl/45._dl*k/opac(j)*(2._dl*adotoa*shear+ytprime(3))
+        pig = 32._dl/45._dl*k/opac(j)*shear
         pol=0
         polEprime=0
         polBprime=0
@@ -2308,19 +2377,19 @@ end if
 
         polter = 0.1_dl*pig + 9._dl/15._dl*E(2)
         polterdot=9._dl/15._dl*Eprime(2) + 0.1_dl*pigdot
-        polterddot = 9._dl/15._dl*(-dopacity*(E(2)-polter)-opacity*(  &
+        polterddot = 9._dl/15._dl*(-dopac(j)*(E(2)-polter)-opac(j)*(  &
             Eprime(2)-polterdot) + k*(2._dl/3._dl*Bprime(2)*aux - 5._dl/27._dl*Eprime(3)*EV%Kft(2))) &
             +0.1_dl*(k*(-octg*EV%Kft(2)/3._dl + 8._dl/15._dl*ytprime(3)) - &
-            dopacity*(pig - polter) - opacity*(pigdot-polterdot))
+            dopac(j)*(pig - polter) - opac(j)*(pigdot-polterdot))
 
-        dt=(shear*exptau + (15._dl/8._dl)*polter*visibility/k)*CP%r/sinhxr**2/prefac
+        dt=(shear*expmmu(j) + (15._dl/8._dl)*polter*vis(j)/k)*CP%r/sinhxr**2/prefac
 
         dte=CP%r*15._dl/8._dl/k/prefac* &
-            ((ddvisibility*polter + 2._dl*dvisibility*polterdot + visibility*polterddot)  &
-            + 4._dl*cothxor*(dvisibility*polter + visibility*polterdot) - &
-            visibility*polter*(k2 -6*cothxor**2))
+            ((ddvis(j)*polter + 2._dl*dvis(j)*polterdot + vis(j)*polterddot)  &
+            + 4._dl*cothxor*(dvis(j)*polter + vis(j)*polterdot) - &
+            vis(j)*polter*(k2 -6*cothxor**2))
 
-        dtb=15._dl/4._dl*EV%q*CP%r/k/prefac*(visibility*(2._dl*cothxor*polter + polterdot) + dvisibility*polter)
+        dtb=15._dl/4._dl*EV%q*CP%r/k/prefac*(vis(j)*(2._dl*cothxor*polter + polterdot) + dvis(j)*polter)
     else
         dt=0._dl
         dte=0._dl
@@ -2330,7 +2399,7 @@ end if
     end subroutine outputt
 
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine outputv(EV,yv,n,tau,dt,dte,dtb)
+    subroutine outputv(EV,yv,n,j,tau,dt,dte,dtb)
     !calculate the vector sources
     use ThermoData
 
@@ -2342,11 +2411,8 @@ end if
     real(dl) vb,qg, pig, polter, sigma
     real(dl) k,k2
     real(dl), dimension(:),pointer :: E,Eprime
-    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
-
-!FG: da rivedere
-!    call IonizationFunctionsAtTime(tau, opacity, dopacity, ddopacity, &
-!        visibility, dvisibility, ddvisibility, exptau, lenswindow)
+!    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
+    integer :: j
 
 
     call derivsv(EV,EV%nvarv,tau,yv,yvprime)
@@ -2373,12 +2439,12 @@ end if
         else
             dt =0
         end if
-        dt= (4*(vb+sigma)*visibility + 15._dl/2/k*( visibility*polterdot + dvisibility*polter) &
-            + 4*(exptau*yvprime(2)) )/x
+        dt= (4*(vb+sigma)*vis(j) + 15._dl/2/k*( vis(j)*polterdot + dvis(j)*polter) &
+            + 4*(expmmu(j)*yvprime(2)) )/x
 
-        dte= 15._dl/2*2*polter/x**2*visibility + 15._dl/2/k*(dvisibility*polter + visibility*polterdot)/x
+        dte= 15._dl/2*2*polter/x**2*vis(j) + 15._dl/2/k*(dvis(j)*polter + vis(j)*polterdot)/x
 
-        dtb= -15._dl/2*polter/x*visibility
+        dtb= -15._dl/2*polter/x*vis(j)
     else
         dt=0
         dte=0
@@ -3020,7 +3086,8 @@ dgpi = dgpi + grhor_t*pir + grhog_t*pig
 ! Computing Z and sigma with modified Einstein equation
 if (tempmodel /= 0) then
     ! mu, gamma parametrization
-	if (model == 1 .or. model ==4 .or. model == 5 .or. model == 6 .or. model== 7 .or. model == 8 .or. model == 9 .or. model ==10) then    
+	if (model == 1 .or. model ==4 .or. model == 5 .or. model == 6 .or. model== 7 .or. model == 8 &
+           &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then    
 
 		MG_mu = MGMu(a,adotoa,k2,model)
 		MG_mudot = MGMuDot(a,adotoa,k2,Hdot, model)
@@ -3151,16 +3218,16 @@ else !GR limit ( model = 0 )
         ayprime(2)=0.5_dl*dgq + CP%curv*z
     end if
 !FG? questo era commentato in eq_ppf--------------------------------------
-    !if (.not. is cosmological constant) then
-    
+!    if (.not. is_cosmological_constant) then
+   
 !       ayprime(EV%w_ix)= -3*adotoa*(cs2_lam-w_lam)*(clxq+3*adotoa*(1+w_lam)*vq/k) &
 !           -(1+w_lam)*k*vq -(1+w_lam)*k*z
     
 !       ayprime(EV%w_ix+1) = -adotoa*(1-3*cs2_lam)*vq + k*cs2_lam*clxq/(1+w_lam)
     
-    end if
+!    end if
 !------------------------------------------------------------------------    
-
+end if
     if (associated(EV%OutputTransfer)) then
         EV%OutputTransfer(Transfer_kh) = k/(CP%h0/100._dl)
         EV%OutputTransfer(Transfer_cdm) = clxc
@@ -3392,6 +3459,7 @@ else !GR limit ( model = 0 )
             end do
         end if
     end do
+
 
     if (EV%has_nu_relativistic) then
         ind=EV%nu_pert_ix

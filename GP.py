@@ -18,7 +18,7 @@ parser.add_argument('--redshifts',metavar='z',  type=float, nargs='*',default=[]
                    help='values of redshifts')
 parser.add_argument('--eos',metavar='wde',  type=float, nargs='*',default=[],
                    help='equation of state')
-parser.add_argument('--eosn',metavar='wn',  type=float, nargs='*',default=[],
+parser.add_argument('--eos0',metavar='w0',  type=float, nargs='*',default=[],
                    help='equation of state at z=0')
 parser.add_argument('--l',metavar='l',  type=float, nargs='+',
                    help='correlation length')
@@ -39,16 +39,16 @@ endred = args.endred[0]
 ODEsteps = args.ODEsteps[0]
 #z_edge = np.array(args.redshifts) #NH redshift at edge of each bin
 wde = np.array(args.eos)
-wn = np.array(args.eosn)
+w0 = np.array(args.eos0)
 l = args.l[0]
 filename = args.outfile[0]
 
 z = np.array(args.redshifts)#z_edge[:-1] + np.diff(z_edge)/2 #NH z is now the redshift in the middle of each bin
 ini=[inired]
 z=np.concatenate([ini,z])
-print  z
-wde=np.concatenate([wn,wde])
-print  wde
+#print  z
+wde=np.concatenate([w0,wde])
+#print  wde
 
 nb=len(wde)
 #defining the baseline -1

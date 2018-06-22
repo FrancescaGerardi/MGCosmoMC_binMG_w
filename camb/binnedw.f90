@@ -4,7 +4,7 @@ use constants
 use ModelParams
 
       implicit none
-      logical, parameter :: debugging = .false.
+      logical, parameter :: debugging = .true.
       real(dl), dimension(:),allocatable :: binned_z, binned_w, rhodeint !output arrays of GP reconstruction
       real(dl), dimension(:),allocatable :: b1, c1, d1                   !coefficients for interpolation
       real(dl), dimension(:),allocatable :: b2, c2, d2                   !coefficients for interpolation
@@ -140,7 +140,7 @@ use ModelParams
       character(LEN= 1000)                :: wbins
       character(LEN= 1000)                :: steps_de
       character(LEN= 1000)                :: z_ini
-      character(LEN= 1000)                :: wn
+      character(LEN= 1000)                :: w0
       character(LEN= 1000)                :: z_end
       character(LEN= 1000)                :: lencorr
       character(LEN= 20)                  :: feature_file="tmp_GPqz_000000.dat"
@@ -183,9 +183,7 @@ use ModelParams
             gpreds(i) = (CP%zb(i)+CP%zb(i-1))/2.
          end do
 
-!FGcheck------------------------
-write(*,*) CP%w0, CP%wb(1)
-!-------------------------------
+
 
          !Creating command line
 
@@ -198,8 +196,7 @@ write(*,*) CP%w0, CP%wb(1)
          write(steps_de, "(I10)"     ) nsteps
          write(zbins, "(10E15.7)"   ) (gpreds(i),i=1,CP%nb)
          write(wbins, "(10f15.7)"     ) (CP%wb(i),i=1,CP%nb) !python parser struggles with scientific notation negatives: using floats here
-         write(*,*) CP%w0
-         write(wn, "(10f15.7)"     ) CP%w0
+         write(w0, "(10f15.7)"     ) (CP%w0)
          write(lencorr, "(10E15.7)"  ) CP%corrlen
 
          if (CP%model.eq.GP) then
@@ -211,7 +208,7 @@ write(*,*) CP%w0, CP%wb(1)
             command_plus_arguments = "python GP.py --inired "//trim(adjustl(z_ini))//&
             &" --endred "//trim(adjustl(z_end))//" --ODEsteps "//trim(adjustl(steps_de))// &
             & " --redshifts "//trim(adjustl(zbins))// " --eos "//trim(adjustl(wbins))//&
-	    & " --eosn "//trim(adjustl(wn))//&
+	    & " --eos0 "//trim(adjustl(w0))//&
             & " --l "//trim(adjustl(lencorr))// " --outfile " // feature_file
 
 

@@ -81,7 +81,7 @@
 
 
 !MG+binned 
-call this%SetTheoryParameterNumbers(37++1+2*init_nbin+3, last_power_index)
+call this%SetTheoryParameterNumbers(37+1+2*init_nbin+3, last_power_index)
 !-------MG
 
 

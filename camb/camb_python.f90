@@ -28,7 +28,7 @@
 
     contains
 
-    !SPECIAL BRIDGE ROUTINES FOR PYTHON
+    !SPECIAL BRIDGE ROUTINES FOR PYTHONset
 
     subroutine CAMBdata_new(handle)
     type(c_ptr), intent(out) :: handle
@@ -104,7 +104,7 @@
     global_error_flag = 0
     data%Params = P
     call CAMBParams_Set(data%Params)
-    if (global_error_flag==0) call InitVars !calculate thermal history, e.g. z_drag etc.
+    call InitVars !calculate thermal history, e.g. z_drag etc.
     error=global_error_flag
 
     end function CAMBdata_CalcBackgroundTheory
@@ -401,19 +401,17 @@
 
     end function CAMB_PrimordialPower
 
-    subroutine GetOutputEvolutionFork(EV, times, outputs, nsources,ncustomsources)
+    subroutine GetOutputEvolutionFork(EV, times, outputs)
     use Transfer
     use CAMBmain
     implicit none
     type(EvolutionVars) EV
     real(dl), intent(in) :: times(:)
     real(dl), intent(out) :: outputs(:,:,:)
-    integer, intent(in) :: nsources, ncustomsources
     real(dl) tau,tol1,tauend, taustart
-    integer j,ind
+    integer j,ind,itf
     real(dl) c(24),w(EV%nvar,9), y(EV%nvar)
-    real(dl) yprime(EV%nvar), ddelta, delta, adotoa,dtauda, growth, a
-    real(dl), target :: sources(nsources), custom_sources(ncustomsources)
+    real(dl) yprime(EV%nvar), ddelta, delta, adotoa,dtauda, growth, x_e, a, x_e_recomb
     external dtauda
     real, target :: Arr(Transfer_max)
 
@@ -432,11 +430,8 @@
         call GaugeInterface_EvolveScal(EV,tau,y,tauend,tol1,ind,c,w)
         yprime = 0
         EV%OutputTransfer =>  Arr
-        EV%OutputSources => sources
-        if (ncustomsources>0) EV%CustomSources => custom_sources
         call derivs(EV,EV%ScalEqsToPropagate,tau,y,yprime)
-        nullify(EV%OutputTransfer, EV%OutputSources, EV%CustomSources)
-
+        nullify(EV%OutputTransfer)
         a = y(1)
         outputs(1:Transfer_Max, j, EV%q_ix) = Arr
         outputs(Transfer_Max+1, j, EV%q_ix) = a
@@ -460,33 +455,18 @@
         if (.not. EV%no_nu_multpoles) then
             outputs(Transfer_Max+8, j, EV%q_ix) = y(EV%r_ix+1) !v_r
         end if
-        outputs(Transfer_max + 9:Transfer_max + 9 + nsources-1, j, EV%q_ix) = sources
-        if (ncustomsources > 0) then
-            outputs(Transfer_max + 9+nsources: &
-                Transfer_max + 9 + nsources + ncustomsources-1, j, EV%q_ix) = custom_sources
-        end if
 
         if (global_error_flag/=0) return
     end do
     end subroutine GetOutputEvolutionFork
 
-    function CAMB_TimeEvolution(nq, q, ntimes, times, noutputs, outputs, &
-        ncustomsources,c_source_func) result(err)
-    use GaugeInterface
-    integer, intent(in) :: nq, ntimes, noutputs, ncustomsources
+    function CAMB_TimeEvolution(nq, q, ntimes, times, noutputs, outputs) result(err)
+    integer, intent(in) :: nq, ntimes, noutputs
     real(dl), intent(in) :: q(nq), times(ntimes)
-    real(dl), intent(out) :: outputs(noutputs, ntimes, nq)
-    TYPE(C_FUNPTR), INTENT(IN) :: c_source_func
+    real(dl), intent(out) :: outputs(Transfer_Max+8, ntimes, nq)
     integer err
-    integer q_ix, i
+    integer q_ix
     Type(EvolutionVars) :: Ev
-    procedure(TSource_func), pointer :: old_sources
-
-    if (ncustomsources > 0) then
-        ! Convert C to Fortran procedure pointer.
-        old_sources => custom_sources_func
-        CALL C_F_PROCPOINTER (c_source_func, custom_sources_func)
-    end if
 
     global_error_flag = 0
     outputs = 0
@@ -498,105 +478,13 @@
             EV%TransferOnly=.false.
             EV%q2=EV%q**2
             call GetNumEqns(EV)
-            call GetOutputEvolutionFork(EV, times, outputs, 3, ncustomsources)
+            call GetOutputEvolutionFork(EV, times, outputs)
         end if
     end do
     !$OMP END PARALLEL DO
-    if (ncustomsources>0) custom_sources_func => old_sources
     err = global_error_flag
     end function CAMB_TimeEvolution
 
-
-    subroutine CAMB_SetCustomSourcesFunc(ncustomsources, c_source_func, ell_scales)
-    use GaugeInterface
-    integer, intent(in) :: ncustomsources
-    integer, intent(in) :: ell_scales(ncustomsources)
-    TYPE(C_FUNPTR), INTENT(IN) :: c_source_func
-
-    num_custom_sources = ncustomsources
-    if (allocated(custom_source_ell_scales)) deallocate(custom_source_ell_scales)
-    if (ncustomsources > 0) then
-        ! Convert C to Fortran procedure pointer.
-        CALL C_F_PROCPOINTER (c_source_func, custom_sources_func)
-        allocate(custom_source_ell_scales(num_custom_sources))
-        custom_source_ell_scales=ell_scales
-    else
-        nullify(custom_sources_func)
-    end if
-
-    end subroutine CAMB_SetCustomSourcesFunc
-
-    function Utils_GetChiSquared(c_inv, Y, n) result(chi2)
-    !get dot_product(matmul(C_inv,Y), Y) efficiently assuming c_inv symmetric
-    integer, intent(in) :: n
-    real(dl), intent(in) :: Y(n)
-    real(dl), intent(in) :: c_inv(n,n)
-    integer j
-    real(dl) ztemp, chi2
-
-    chi2 = 0
-    !$OMP parallel do private(j,ztemp) reduction(+:chi2) schedule(static,16)
-    do  j = 1, n
-        ztemp= dot_product(Y(j+1:n), c_inv(j+1:n, j))
-        chi2=chi2+ (ztemp*2 +c_inv(j, j)*Y(j))*Y(j)
-    end do
-
-    end function Utils_GetChiSquared
-
-    subroutine Utils_3j_integrate(W,lmax_w, n, dopol, M, lmax)
-    !Get coupling matrix, eg for pesudo-CL
-    integer, intent(in) :: lmax, lmax_w, n
-    real(dl), intent(in) :: W(0:lmax_w,n)
-    logical, intent(in) :: dopol
-    real(dl), intent(out) :: M(0:lmax,0:lmax, n)
-    integer l1, l2, lplus, lminus, thread_ix, ix
-    real(dl), allocatable :: threejj0(:,:), threejj2(:,:)
-
-    !$ integer  OMP_GET_THREAD_NUM, OMP_GET_MAX_THREADS
-    !$ external OMP_GET_THREAD_NUM, OMP_GET_MAX_THREADS
-
-    thread_ix = 1
-    !$ thread_ix = OMP_GET_MAX_THREADS()
-
-    allocate(threejj0(0:2*lmax,thread_ix))
-    if (dopol) then
-        allocate(threejj2(0:2*lmax,thread_ix))
-    end if
-
-    !$OMP parallel do private(l1,l2,lminus,lplus,thread_ix,ix), schedule(dynamic)
-    do l1 = 0, lmax
-        thread_ix =1
-        !$ thread_ix = OMP_GET_THREAD_NUM()+1
-        do l2 = 0, l1
-            lplus =  min(lmax_w,l1+l2)
-            lminus = abs(l1-l2)
-
-            call GetThreeJs(threejj0(lminus:,thread_ix),l1,l2,0,0)
-
-            if (dopol) then
-                !note that lminus is correct, want max(abs(l1-l2),abs(m1)) where m1=0 here
-                call GetThreeJs(threejj2(lminus:,thread_ix),l1,l2,-2,2)
-                M(l2,l1,2) = sum(W(lminus:lplus:2,2)*threejj0(lminus:lplus:2,thread_ix) &
-                    *threejj2(lminus:lplus:2,thread_ix)) !TE
-                M(l2,l1,3) = sum(W(lminus:lplus:2,3)*threejj2(lminus:lplus:2,thread_ix)**2) !EE
-                M(l2,l1,4) = sum(W(lminus+1:lplus:2,3)*threejj2(lminus+1:lplus:2,thread_ix)**2) !EB
-            end if
-            if (n>1) then
-                threejj0(lminus:lplus,thread_ix) = threejj0(lminus:lplus,thread_ix)**2
-                do ix=1,n
-                    M(l2,l1,ix) = sum(W(lminus:lplus,ix)* threejj0(lminus:lplus,thread_ix))
-                end do
-            else
-                M(l2,l1,1) = sum(W(lminus:lplus,1)* threejj0(lminus:lplus,thread_ix)**2)
-            end if
-        end do
-    end do
-
-    do l1=0, lmax
-        do l2 = l1+1,lmax
-            M(l2,l1,:) = M(l1,l2,:)
-        end do
-    end do
-    end subroutine Utils_3j_integrate
+    ! END BRIDGE FOR PYTHON
 
     end module handles
