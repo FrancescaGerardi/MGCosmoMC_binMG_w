@@ -36,12 +36,19 @@
 !MMmod: comparison with Planck paper arxiv:1502.01590v2-------------  
   real(dl)  :: E11_mg, E22_mg, E12_mg, E21_mg ! for model 11 and 12 (Planck parametrization)
 !------------------------------------------------------------
- 
+!FG---------------------------------------------------
+    logical :: deb_MG = .false.
+    logical :: deb_MG_add = .false.
+!-----------------------------------------------------
+
 contains
 !-----------------------------------------------
 ! mu(a,k) function
 function MGMu(a,adotoa,k2,model)
     use ModelParams
+!FGmod---------------------------------------
+    use binnedMG
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a,adotoa,k2,MGMu
@@ -92,6 +99,17 @@ function MGMu(a,adotoa,k2,model)
 
         MGMu = 1 + E11_mg + E12_mg * (1-a)
 !--------------------------------------------------
+!FGmod---------------------------------------------
+!non parametric reconstruction of mu and sigma 
+    else if (model == 13) then
+        call get_mu(CP, a, MGMu)
+        if (deb_MG_add) then
+            open(49,file='test_mu_ppf.dat', position='append')
+            write(49,*) a, MGMu
+            close(49)
+        end if
+   if(deb_MG_add) write(*,*) 'MGMu', a
+!--------------------------------------------------
     end if
 end function MGMu
 
@@ -99,6 +117,9 @@ end function MGMu
 ! \dot{mu}(a,k) function
 function MGMuDot(a,adotoa,k2,Hdot,model)
     use ModelParams
+!FGmod---------------------------------------
+    use binnedMG
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a, adotoa, MGMuDot
@@ -110,6 +131,8 @@ function MGMuDot(a,adotoa,k2,Hdot,model)
 !MMmod:comparison with Planck paper arxiv:1502.01590v2
     real(dl) :: ode, odedot
     real(dl) :: sumo
+!FGmod
+    real(dl) :: MGMu2, MGMu1
 !-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
@@ -154,7 +177,17 @@ function MGMuDot(a,adotoa,k2,Hdot,model)
 
         MGMuDot = -E22_mg*a*adotoa
 !--------------------------------------------------
-
+!FGmod---------------------------------------------
+    else if (model == 13) then
+            call get_dotmu(a,MGMuDot)
+            MGMuDot= -MGMuDot*adotoa/a
+            if (deb_MG_add) then
+               open(51,file='test_dotmu_ppf.dat', position='append')
+               write(51,*) a, MGMuDot
+               close(51)
+            end if
+   if(deb_MG_add) write(*,*) 'MGDotMu', a
+!--------------------------------------------------
 
     end if
 
@@ -167,6 +200,9 @@ function MGGamma(a,adotoa,k2, model)
 !da MM---------------------------------------
     use ModelParams
 !--------------------------------------------
+!FGmod---------------------------------------
+    use binnedMG
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a, adotoa, k2, MGGamma
@@ -176,6 +212,8 @@ function MGGamma(a,adotoa,k2, model)
 !MMmod:comparison with Planck paper arxiv:1502.01590v2
     real(dl) :: ode, odedot
     real(dl) :: sumo
+!FGmod
+    real(dl) :: MGSigma, MGMu
 !-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
@@ -208,6 +246,18 @@ function MGGamma(a,adotoa,k2, model)
 
         MGGamma = 1 + E21_mg + E22_mg * (1-a)
 !--------------------------------------------------
+!FGmod---------------------------------------------
+!non parametric reconstruction of mu and sigma 
+    else if (model == 13) then
+        call get_mu(CP, a, MGMu)
+        call get_sigma(CP,a, MGSigma)
+        MGGamma = (2*MGSigma/MGMu)-1 
+        if (deb_MG_add) then
+            open(48,file='test_gamma_ppf.dat', position='append')
+            write(48,*) a, MGGamma
+            close(48)
+        end if
+!--------------------------------------------------
 
     end if
 
@@ -220,6 +270,9 @@ function MGGammaDot(a,adotoa,k2,model)
 !da MM---------------------------------------
     use ModelParams
 !--------------------------------------------
+!FGmod---------------------------------------
+    use binnedMG
+!--------------------------------------------
     implicit none
     integer :: model
     real(dl) :: a, adotoa, MGGammaDot
@@ -231,6 +284,8 @@ function MGGammaDot(a,adotoa,k2,model)
 !MMmod:comparison with Planck paper arxiv:1502.01590v2
     real(dl) :: ode, odedot
     real(dl) :: sumo
+!FGmod
+    real(dl) :: MGMu, dotsigma, dotmu
 !-----------------------------------------------------
 
     if(model==1 .or.model==4 .or.model==5.or.model==6) then
@@ -266,7 +321,16 @@ function MGGammaDot(a,adotoa,k2,model)
 
         MGGammaDot = -E22_mg*a*adotoa
 !--------------------------------------------------
-
+!FGmod---------------------------------------------
+    else if (model == 13) then
+       call get_dotgamma(a,MGGammaDot)
+       MGGammaDot= -MGGammaDot*adotoa/a
+       if (deb_MG_add) then
+          open(50,file='test_dotgamma_ppf.dat', position='append')
+          write(50,*) a, MGGammaDot
+          close(50)
+       end if
+!--------------------------------------------------
     end if
 
 
@@ -554,7 +618,7 @@ end module mgvariables
   
     !z= (1/a) -1
     !MMmod: binned w
-    if (CP%model.eq.0) then 
+    if (CP%mode.eq.0) then 
        if(.not. use_tabulated_w) then
            w_de=w_lam+wa_ppf*(1._dl-a)
        else
@@ -607,7 +671,7 @@ end module mgvariables
     real(dl), intent(IN) :: a
 
     !MMmod: binned w
-    if (CP%model.eq.0) then
+    if (CP%mode.eq.0) then
        if(.not. use_tabulated_w) then
            grho_de=grhov*a**(1._dl-3.*w_lam-3.*wa_ppf)*exp(-3.*wa_ppf*(1._dl-a))
        else
@@ -684,19 +748,21 @@ end module mgvariables
     subroutine init_background  
     use LambdaGeneral
     use binnedw 
+    use binnedMG
     !This is only called once per model, and is a good point to do any extra initialization.
     !It is called before first call to dtauda, but after
     !massive neutrinos are initialized and after GetOmegak
 
     !MMmod: w_binned----------------------------------
-    is_cosmological_constant = .not. use_tabulated_w .and. w_lam==-1_dl .and. wa_ppf==0._dl .and. CP%model==0
+    is_cosmological_constant = .not. use_tabulated_w .and. w_lam==-1_dl .and. wa_ppf==0._dl .and. CP%mode==0 
 
-    if (CP%model.gt.0) then
+    if (CP%mode.gt.0) then
        is_cosmological_constant = .true.
        if (any(CP%wb.ne.-1._dl)) is_cosmological_constant = .false.
     end if
 
-    if (CP%model.gt.0) call calc_w_de(CP)
+    if (CP%mode.gt.0) call calc_w_de(CP)
+    if (CP%modemg.gt.0) call calc_MGfunc(CP)
     !-------------------------------------------------
     
       
@@ -743,6 +809,7 @@ end module mgvariables
     end if
 
     dtauda=sqrt(3/grhoa2)
+
 
     end function dtauda
 
@@ -1865,9 +1932,7 @@ end module mgvariables
 !*********************************************************
 real(dl) adotdota, term1, term2, term3, term4, term5, adotdotdota, Hdotdot, omm, ommdot, ommdotdot
 real(dl) cs2
-!serve?-------------------
 real(dl) opacity, dopacity
-!-------------------------
 real(dl) MG_gamma, MG_gammadot, MG_mu, MG_mudot, etadot
 real(dl) fmu,f1,f2
 real(dl) MG_rhoDelta, MG_alpha, MG_N, MG_D, MG_hdot, Hdot, dgqMG, dgrhoMG
@@ -1880,13 +1945,13 @@ real(dl) polterdot, MG_alphadot
 real(dl) :: MG_rhoDeltadot, term0, dgpidot
 !* MGCAMB mod: end
 !***********************************************************
-    
 
 
 !    call IonizationFunctionsAtTime(j,tau)
 
-
     yprime = 0
+
+
     call derivs(EV,EV%ScalEqsToPropagate,tau,y,yprime)
 
     if (EV%TightCoupling .or. EV%no_phot_multpoles) then
@@ -1946,6 +2011,7 @@ real(dl) :: MG_rhoDeltadot, term0, dgpidot
     end if
 
     adotoa=sqrt((grho+grhok)/3)
+
     
 !****************************************************************
 !* MGCAMB:
@@ -2039,9 +2105,11 @@ end if
 !* MGCAMB: end
 !*****************************************************************
 
+
     dgrho = dgrho + grhog_t*clxg+grhor_t*clxr
     dgq   = dgq   + grhog_t*qg+grhor_t*qr
     dgpi  = dgpi  + grhor_t*pir + grhog_t*pig
+
 
 
     !  Get sigma (shear) and z from the constraints
@@ -2054,16 +2122,19 @@ end if
 if (tempmodel /= 0) then
  ! MU, GAMMA parametrization
  if (model==1 .or.model==4 .or.model==5 .or.model==6 .or.model==7 .or.model==8 &
-     &.or.model == 9 .or.model == 10 .or.model == 11 .or.model == 12) then
+     &.or.model == 9 .or.model == 10 .or.model == 11 .or.model == 12 .or. model ==13) then
 
 	MG_mu = MGMu(a,adotoa,k2,model)
 	MG_mudot = MGMuDot(a,adotoa,k2,Hdot,model)
 	MG_gamma = MGGamma(a,adotoa,k2,model)
 	MG_gammadot = MGGammaDot(a,adotoa,k2,model)
+
+
     ! MG_rhoDelta = \kappa a^2 \sum_i \rho_i (\delta_i + 3 adotoa (1+w_i))
     MG_rhoDelta = dgrho + 3._dl * adotoa * dgq/ k
 
     MG_alpha = ( etak/k + MG_mu*(MG_gamma*MG_rhoDelta+(MG_gamma -1.d0)*2.d0* dgpi)/(2.d0*k2)) / adotoa
+
 
     ! \sigma
     sigma = k * MG_alpha
@@ -2078,6 +2149,7 @@ if (tempmodel /= 0) then
 
     term3= (MG_mu * ( MG_gamma -1.d0)* adotoa - MG_gamma*MG_mudot - MG_gammadot*MG_mu )*MG_rhoDelta
 
+
     term4 = (2.d0)*(MG_mu*(MG_gamma - 1.d0)*adotoa - &
     (MG_gamma - 1.d0)*MG_mudot - MG_gammadot*MG_mu)* dgpi
 
@@ -2085,6 +2157,7 @@ if (tempmodel /= 0) then
 
     ! \dot{\eta}
     etadot = (term1 + term2 + term3 + term4 + term5)/( 2.d0 *fmu)
+
 
     !Z
     z = sigma - 3.d0 * etadot/k
@@ -2094,6 +2167,8 @@ if (tempmodel /= 0) then
     MG_phi = MG_gamma * MG_psi + MG_mu*1.d0*dgpi/k2
 
     MG_phidot = etadot - adotoa * (MG_psi - adotoa * MG_alpha)- Hdot * MG_alpha
+
+
 
  ! Q,R parametrization
  else if ( model ==2.or.model ==3) then
@@ -2132,6 +2207,7 @@ else !GR limit ( model = 0 )
 
     z=(0.5_dl*dgrho/k + etak)/adotoa
     sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
+
 end if
 
 !* MGCAMB mod: end
@@ -2146,6 +2222,7 @@ end if
             grhov_t*(1+w_eff)*k*z/adotoa -2._dl*k2*EV%Kf(1)*(yprime(EV%w_ix)/adotoa-2._dl*y(EV%w_ix))
         ppiedot=ppiedot*adotoa/EV%Kf(1)
     end if
+
 
     polter = 0.1_dl*pig+9._dl/15._dl*ypol(2)
 
@@ -2222,7 +2299,7 @@ if(tempmodel == 0 ) then
 else
     ! ISW for mu,gamma parametrization
     if(model==1 .or. model==4 .or. model==5.or. model==6 .or. model == 7 .or. model ==8 &
-       &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then
+       &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12 .or. model == 13) then
         ISW_MG = - (MG_gammadot* MG_mu + MG_gamma* MG_mudot)*0.5d0/k2 * (dgrho + 2.d0*dgpi) - MG_mu* MG_gamma*0.5d0/k2*&
                  (MG_rhoDeltadot + 2.d0* dgpidot) - MG_mudot*0.5d0/k2*dgrho - MG_mu*0.5d0/k2*MG_rhoDeltadot
 
@@ -2250,6 +2327,9 @@ else
 	    + (MG_alpha+vb/k+30.0d0/8.0d0 *polterdot/k2)*dvis(j)+ ddvis(j)*30.0d0/16.0d0*polter/k2
 
 end if
+
+
+
 !* MGCAMB mode end
 !*******************************************************
 
@@ -2295,8 +2375,10 @@ if(tempmodel == 0 ) then
 
             sources(3) = -2*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
 else if(model==1 .or. model==4 .or. model==5 .or. model==6 .or. model == 7 .or. model ==8 &
-   &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then
+   &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12 .or. model == 13) then
     sources(3) = -MG_mu*(1+MG_gamma)*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
+
+
 else if(model==2.or.model==3) then
        sources(3) = -MGQ*(1+MGR)*phi*f_K(tau-tau_maxvis)/(f_K(CP%tau0-tau_maxvis)*f_K(CP%tau0-tau))
 end if
@@ -2308,10 +2390,7 @@ end if
             sources(3) = 0
          end if
      end if
-
-!FGmod-----------------------------------------------------------
-!	    write(*,*) 'sono alla fine di output'
-!----------------------------------------------------------------	
+	
 
     end subroutine output
 
@@ -2411,7 +2490,6 @@ end if
     real(dl) vb,qg, pig, polter, sigma
     real(dl) k,k2
     real(dl), dimension(:),pointer :: E,Eprime
-!    real(dl) opacity, dopacity, ddopacity, visibility, dvisibility, ddvisibility, exptau, lenswindow
     integer :: j
 
 
@@ -2626,6 +2704,7 @@ end if
     !  Baryons
     y(4)=InitVec(i_clxb)
     y(5)=InitVec(i_vb)
+
 
     !  Photons
     y(EV%g_ix)=InitVec(i_clxg)
@@ -2882,7 +2961,6 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
 !*******************************************************
     
 
-
     k=EV%k_buf
     k2=EV%k2_buf
 
@@ -2897,6 +2975,7 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
     !  Baryon variables
     clxb=ay(4)
     vb=ay(5)
+
 
     !  Compute expansion rate from: grho 8*pi*rho*a**2
 
@@ -2920,16 +2999,15 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
         call thermo(tau,cs2,opacity)
     end if
 
-!FGmod------------------------
-!write(*,*) 'opacity', opacity
-!-----------------------------
 
     gpres=(grhor_t+grhog_t)/3._dl
     grho_matter=grhob_t+grhoc_t
 
+
     !total perturbations: matter terms first, then add massive nu, de and radiation
     !  8*pi*a*a*SUM[rho_i*clx_i]
     dgrho_matter=grhob_t*clxb+grhoc_t*clxc
+
     !  8*pi*a*a*SUM[(rho_i+p_i)*v_i]
     dgq=grhob_t*vb
 
@@ -2938,6 +3016,9 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
     end if
 
     grho = grho_matter+grhor_t+grhog_t+grhov_t
+
+    dgrho = dgrho_matter
+
 !* MGCAMB works only with flat models
     if (CP%flat) then
         adotoa=sqrt(grho/3)
@@ -2950,7 +3031,6 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
 
     end if
 
-    dgrho = dgrho_matter
 
     ! if (w_lam /= -1 .and. w_Perturb) then
     !    clxq=ay(EV%w_ix)
@@ -2958,6 +3038,9 @@ real(dl) MGQ,MGR,MGQdot, MGRdot, fQ, k2alpha, MG_phi, MG_psi, MG_phidot
     !    dgrho=dgrho + clxq*grhov_t
     !    dgq = dgq + vq*grhov_t*(1+w_lam)
     !end if
+
+
+
     
 ! switch MG on according to the model (in model 7 GRtrans is replaced by a_star)
 if (model == 7) then
@@ -2973,13 +3056,14 @@ else
       tempmodel = model
    end if
 end if
-!FG?non e che magari ce un problema qui??????
+
+
 !     if (.not. is_cosmological_constant.and. ay(1).lt.GRtrans) then 
-!     clxq=ay(EV%w_ix)
+!        clxq=ay(EV%w_ix)
 !        vq=ay(EV%w_ix+1)
 !        dgrho=dgrho + clxq*grhov_t
 !        dgq = dgq + vq*grhov_t*(1+w_lam)
-!    end if
+!     end if
 
 
     if (EV%no_nu_multpoles) then
@@ -3043,39 +3127,6 @@ end if
 
     ayprime(1)=adotoa*a
 
-    if (.not. is_cosmological_constant) then
-        !ppf
-        grhoT = grho - grhov_t
-        vT= dgq/(grhoT+gpres)
-        Gamma=ay(EV%w_ix)
-
-        !sigma for ppf
-        sigma = (etak + (dgrho + 3*adotoa/k*dgq)/2._dl/k)/EV%kf(1) - k*Gamma
-        sigma = sigma/adotoa
-
-        S_Gamma=grhov_t*(1+w_eff)*(vT+sigma)*k/adotoa/2._dl/k2
-        ckH=c_Gamma_ppf*k/adotoa
-        Gammadot=S_Gamma/(1+ckH*ckH)- Gamma -ckH*ckH*Gamma
-        Gammadot=Gammadot*adotoa
-        ayprime(EV%w_ix)=Gammadot
-
-        if(ckH*ckH.gt.3.d1)then
-            Gamma=0
-            Gammadot=0.d0
-            ayprime(EV%w_ix)=Gammadot
-        endif
-
-        Fa=1+3*(grhoT+gpres)/2._dl/k2/EV%kf(1)
-        dgqe=S_Gamma - Gammadot/adotoa - Gamma
-        dgqe=-dgqe/Fa*2._dl*k*adotoa + vT*grhov_t*(1+w_eff)
-        dgrhoe=-2*k2*EV%kf(1)*Gamma-3/k*adotoa*dgqe
-        dgrho=dgrho+dgrhoe
-        dgq=dgq+dgqe
-
-        EV%dgrho_e_ppf=dgrhoe
-        EV%dgq_e_ppf=dgqe
-    end if
-
 ! MGCAMB: anisotropic contribution from massive neutrinos
 dgpi = 0
 if (CP%Num_Nu_Massive > 0) then
@@ -3087,7 +3138,7 @@ dgpi = dgpi + grhor_t*pir + grhog_t*pig
 if (tempmodel /= 0) then
     ! mu, gamma parametrization
 	if (model == 1 .or. model ==4 .or. model == 5 .or. model == 6 .or. model== 7 .or. model == 8 &
-           &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12) then    
+           &.or. model == 9 .or. model ==10 .or. model == 11 .or. model ==12 .or. model == 13) then    
 
 		MG_mu = MGMu(a,adotoa,k2,model)
 		MG_mudot = MGMuDot(a,adotoa,k2,Hdot, model)
@@ -3095,6 +3146,8 @@ if (tempmodel /= 0) then
 		MG_gammadot = MGGammaDot(a,adotoa,k2,model)
 
         MG_rhoDelta = dgrho + 3._dl * adotoa * dgq/ k
+
+
 
 	    MG_alpha = ( etak/k + MG_mu*(MG_gamma*MG_rhoDelta+(MG_gamma -1.d0)*2.d0* dgpi)/(2.d0*k2)) / adotoa
 
@@ -3165,6 +3218,7 @@ if (tempmodel /= 0) then
 
         z = sigma - 3.d0 * etadot/k
 
+
         MG_psi = - MG_mu * ( MG_rhoDelta + 2.d0* dgpi)/(2.d0*k2)
 
         MG_phi = MG_gamma * MG_psi + MG_mu* 1.d0*dgpi/k2
@@ -3202,10 +3256,42 @@ if (tempmodel /= 0) then
         MG_phidot = etadot - adotoa * (MG_psi - adotoa * MG_alpha)- Hdot * MG_alpha
 
     end if
-ayprime(2)= k*etadot
+    ayprime(2)= k*etadot
 else !GR limit ( model = 0 )
+!FGmod----------------------------------------------------------------------------------
+    if (.not. is_cosmological_constant) then
+        !ppf
+        grhoT = grho - grhov_t
+        vT= dgq/(grhoT+gpres)
+        Gamma=ay(EV%w_ix)
 
+        !sigma for ppf
+        sigma = (etak + (dgrho + 3*adotoa/k*dgq)/2._dl/k)/EV%kf(1) - k*Gamma
+        sigma = sigma/adotoa
 
+        S_Gamma=grhov_t*(1+w_eff)*(vT+sigma)*k/adotoa/2._dl/k2
+        ckH=c_Gamma_ppf*k/adotoa
+        Gammadot=S_Gamma/(1+ckH*ckH)- Gamma -ckH*ckH*Gamma
+        Gammadot=Gammadot*adotoa
+        ayprime(EV%w_ix)=Gammadot
+
+        if(ckH*ckH.gt.3.d1)then
+            Gamma=0
+            Gammadot=0.d0
+            ayprime(EV%w_ix)=Gammadot
+        endif
+
+        Fa=1+3*(grhoT+gpres)/2._dl/k2/EV%kf(1)
+        dgqe=S_Gamma - Gammadot/adotoa - Gamma
+        dgqe=-dgqe/Fa*2._dl*k*adotoa + vT*grhov_t*(1+w_eff)
+        dgrhoe=-2*k2*EV%kf(1)*Gamma-3/k*adotoa*dgqe
+        dgrho=dgrho+dgrhoe
+        dgq=dgq+dgqe
+
+        EV%dgrho_e_ppf=dgrhoe
+        EV%dgq_e_ppf=dgqe
+    end if
+!----------------------------------------------------------------------------------------
     !  Get sigma (shear) and z from the constraints
     ! have to get z from eta for numerical stability
     z=(0.5_dl*dgrho/k + etak)/adotoa
@@ -3217,8 +3303,9 @@ else !GR limit ( model = 0 )
         sigma=(z+1.5_dl*dgq/k2)/EV%Kf(1)
         ayprime(2)=0.5_dl*dgq + CP%curv*z
     end if
-!FG? questo era commentato in eq_ppf--------------------------------------
-!    if (.not. is_cosmological_constant) then
+end if
+
+!    if (.not. is_cosmological_constant .and. ay(1).lt.GRtrans) then
    
 !       ayprime(EV%w_ix)= -3*adotoa*(cs2_lam-w_lam)*(clxq+3*adotoa*(1+w_lam)*vq/k) &
 !           -(1+w_lam)*k*vq -(1+w_lam)*k*z
@@ -3227,7 +3314,8 @@ else !GR limit ( model = 0 )
     
 !    end if
 !------------------------------------------------------------------------    
-end if
+
+
     if (associated(EV%OutputTransfer)) then
         EV%OutputTransfer(Transfer_kh) = k/(CP%h0/100._dl)
         EV%OutputTransfer(Transfer_cdm) = clxc
@@ -3259,6 +3347,7 @@ end if
     ayprime(4)=clxbdot
     !  Photon equation of motion
     clxgdot=-k*(4._dl/3._dl*z+qg)
+
 
     ! old comment:Small k: potential problem with stability, using full equations earlier is NOT more accurate in general
     ! Easy to see instability in k \sim 1e-3 by tracking evolution of vb
@@ -3476,6 +3565,7 @@ end if
         ayprime(ind)= k*(ay(ind-1) -a2*ay(ind2-1)) -(EV%lmaxnu_pert+1)*cothxor*ay(ind)
     end if
 
+
     end subroutine derivs
 
 
@@ -3647,6 +3737,9 @@ end if
     rhopi=grhog_t*pig+grhor_t*pir+ grhog_t*Magnetic
 
     yvprime(2)=-2*adotoa*sigma -rhopi/k
+
+
+
 
     end subroutine derivsv
 

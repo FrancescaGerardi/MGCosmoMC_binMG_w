@@ -933,6 +933,8 @@
     call initial(EV,y, taustart)
     if (global_error_flag/=0) return
 
+
+
     tau=taustart
     ind=1
 
@@ -955,6 +957,8 @@
         stop
     end if
 
+
+
     !     Begin timestep loop.
 
     itf=1
@@ -970,6 +974,10 @@
         end do
     end if
 
+!FGmod
+ !           write(*,*) y(3), y(4)
+!qui sono a posto
+
     do j=2,TimeSteps%npoints
         tauend=TimeSteps%points(j)
 
@@ -978,8 +986,15 @@
         Src(EV%q_ix,1:SourceNum,j)=0
         else
             !Integrate over time, calulate end point derivs and calc output
+
+!FGmod
+!            write(*,*) y(3), y(4)
+!qui danno di matto--- what is happening???
+
             call GaugeInterface_EvolveScal(EV,tau,y,tauend,tol1,ind,c,w)
             if (global_error_flag/=0) return
+
+
 
             call output(EV,y,j,tau,sources, num_custom_sources)
             Src(EV%q_ix,1:SourceNum,j)=sources

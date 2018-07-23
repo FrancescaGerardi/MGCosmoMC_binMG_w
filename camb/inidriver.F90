@@ -33,6 +33,8 @@
         MatterPowerFileNames(max_transfer_redshifts), outroot, version_check
     real(dl) output_factor, nmassive
 
+    !auxiliary variable for coupling bins
+    character(LEN=Ini_max_string_len) binnum
 #ifdef WRITE_FITS
     character(LEN=Ini_max_string_len) FITSfilename
 #endif
@@ -56,6 +58,7 @@
     call CAMB_SetDefParams(P)
 
     P%WantScalars = Ini_Read_Logical('get_scalar_cls')
+    P%want_background = Ini_Read_Logical('get_background')
     P%WantVectors = Ini_Read_Logical('get_vector_cls',.false.)
     P%WantTensors = Ini_Read_Logical('get_tensor_cls',.false.)
 
@@ -189,6 +192,46 @@ E12_mg = Ini_Read_Double('E12', 0.d0)
 E21_mg = Ini_Read_Double('E21',0.d0)
 !-----------------------------------------------
 
+!FGmod: non-parametric recosntrunction of mu and sigma------------------
+else if (model==13) then
+    !reading parameters for binning
+    P%nbmg = Ini_Read_Int('num_bins_MG',1)
+    P%mu0 = Ini_Read_Double('bin_mu_0',0._dl)
+    P%sig0 = Ini_Read_Double('bin_sigma_0',0._dl)
+    P%modemg = Ini_Read_Int('model_MG', 1)    
+
+    if (.not.allocated(P%zbmg)) allocate(P%zbmg(P%nbmg),P%sb(P%nbmg), P%mb(P%nbmg),P%abmg(P%nbmg))
+    do i=1,P%nbmg
+       write(binnum,*) i
+       P%abmg(i) = Ini_Read_Double('bin_a_MG_'//trim(adjustl(binnum)))
+       P%mb(i) = Ini_Read_Double('bin_mu_'//trim(adjustl(binnum)),0._dl)
+       P%sb(i) = Ini_Read_Double('bin_sigma_'//trim(adjustl(binnum)),0._dl)
+    end do
+    do i=1,P%nbmg
+       P%zbmg(i)=-1+1._dl/(P%abmg(i))
+    end do
+    P%endredmg = P%zbmg(P%nbmg)
+
+    if (P%zbmg(P%nbmg).gt.P%endredmg) then
+       write(*,*) 'WARNING!!!'
+       write(*,*) 'final redshift for MG functions (',P%endredmg,') is lower than last bin margin ',P%zbmg(P%nbmg)
+       write(*,*) 'You need final redshift to be higher. Fix this and re-run the code. '
+       stop
+    end if
+
+    !reading specific parameters for different models
+    if (P%modemg.eq.2) P%ms= Ini_Read_Double('smooth_factor_mu',10._dl)
+    if (P%modemg.eq.2) P%ss= Ini_Read_Double('smooth_factor_sigma',10._dl)
+
+    if (P%modemg.eq.3) P%mcorr = Ini_Read_Double('correlation_length_mu',1._dl)
+    if (P%modemg.eq.3) P%scorr = Ini_Read_Double('correlation_length_sigma',1._dl)    
+    
+    if (P%modemg.gt.3) then
+       write(*,*) 'ONLY BINNED COUPLING AND GP IMPLEMENTED AT THE MOMENT'
+       write(*,*) 'PLEASE WAIT FOR MORE FANCY STUFF!'
+    end if
+!-----------------------------------------------------------------------
+
 else if (model /= 0) then
 print*, '***please choose a model***'
 stop
@@ -207,6 +250,42 @@ end if
         P%omegav = Ini_Read_Double('omega_lambda')
         P%omegan = Ini_Read_Double('omega_neutrino')
     end if
+
+    !reading parameters for binning---------------------------------------------------------------------
+    P%mode = Ini_Read_Int('model_bin',1)
+
+    P%nb = Ini_Read_Int('num_bins',1)
+    P%w0 = Ini_Read_Double('bin_w_0',0._dl)
+
+    if (.not.allocated(P%zb)) allocate(P%zb(P%nb),P%wb(P%nb),P%ab(P%nb))
+    do i=1,P%nb
+       write(binnum,*) i
+       P%ab(i) = Ini_Read_Double('bin_a_'//trim(adjustl(binnum)))
+       P%wb(i) = Ini_Read_Double('bin_w_'//trim(adjustl(binnum)),0._dl)
+    end do
+    do i=1,P%nb
+       P%zb(i)=-1+1._dl/(P%ab(i))
+    end do
+    P%endred = P%zb(P%nb)
+    if (P%zb(P%nb).gt.P%endred) then
+       write(*,*) 'WARNING!!!'
+       write(*,*) 'final redshift for ODE (',P%endred,') is lower than last bin margin ',P%zb(P%nb)
+       write(*,*) 'You need final redshift to be higher. Fix this and re-run the code. '
+       stop
+    end i
+
+    !reading specific parameters for different models
+    if (P%mode.eq.2) P%s= Ini_Read_Double('smooth_factor',10._dl)
+
+    if (P%mode.eq.3) P%corrlen = Ini_Read_Double('correlation_length',1._dl)
+    
+    
+    if (P%mode.gt.3) then
+       write(*,*) 'ONLY BINNED COUPLING AND GP IMPLEMENTED AT THE MOMENT'
+       write(*,*) 'PLEASE WAIT FOR MORE FANCY STUFF!'
+    end if
+    
+    !-----------------------------------------------------------------------------------------------------
 
     P%tcmb   = Ini_Read_Double('temp_cmb',COBE_CMBTemp)
     P%yhe    = Ini_Read_Double('helium_fraction',0.24_dl)

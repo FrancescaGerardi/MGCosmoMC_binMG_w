@@ -128,12 +128,24 @@
         real(dl)  :: Nu_mass_fractions(max_nu) !The ratios of the total densities
         integer   :: Nu_mass_numbers(max_nu) !physical number per eigenstate
 
+!FGmod:binnedMG
+        integer                              :: modemg                !selects the specific model to use
+        real(dl)                             :: endredmg              !redshift limits for differential equation
+        real(dl)                             :: mu0, sig0             !constraint at z=0 for GP
+        integer                              :: nbmg                  !number of redshift bins
+        real(dl)                             :: ss, ms                !smoothing facto for tanh connection in binned functions
+        real(dl), dimension(:), allocatable  :: abmg                  !right margin of redshift bins (first left margin is always zero)
+        real(dl), dimension(:), allocatable  :: zbmg                  !right margin of redshift bins (first left margin is always zero)
+        real(dl), dimension(:), allocatable  :: mb,sb                 !value of wb within each redshift bin
+        real(dl)                             :: mcorr, scorr          !correlation lenght for gaussian process reconstruction
+
 !FGmod:binnedw
-        integer                              :: model                 !selects the specific model to use
+        integer                              :: mode                  !selects the specific model to use
         real(dl)                             :: startred, endred      !redshift limits for differential equation
         real(dl)                             :: w0                    !constraint at z=0 for GP
         integer                              :: nb                    !number of redshift bins
         real(dl)                             :: s                     !smoothing facto for tanh connection in binned functions
+        real(dl), dimension(:), allocatable  :: ab                    !right margin of redshift bins (first left margin is always zero)
         real(dl), dimension(:), allocatable  :: zb                    !right margin of redshift bins (first left margin is always zero)
         real(dl), dimension(:), allocatable  :: wb                    !value of wb within each redshift bin
         real(dl)                             :: corrlen               !correlation lenght for gaussian process reconstruction
@@ -2262,11 +2274,22 @@
     sig8o=0
     do ik=1, MTrans%num_q_trans
         kh = MTrans%TransferData(Transfer_kh,ik,1)
+!FGmod-----------------------------------------------
+!write(*,*) 'kh', kh
+!----------------------------------------------------
         if (kh==0) cycle
         k = kh*H
-
+!FGmod-----------------------------------------------
+!write(*,*) 'k', k
+!----------------------------------------------------
         dsig8 = MTrans%TransferData(s1,ik, &
             CP%Transfer%PK_redshifts_index(1:CP%Transfer%PK_num_redshifts))
+!FGmod-----------------------------------------------
+!write(*,*) 's1', s1
+!write(*,*) 'ik', ik
+!write(*,*) 'CP%Transfer%PK_redshifts_index(1:CP%Transfer%PK_num_redshifts)',CP%Transfer%PK_redshifts_index(1:CP%Transfer%PK_num_redshifts)
+!write(*,*) 'dsig8', dsig8
+!----------------------------------------------------
         if (s1==s2) then
             dsig8 = dsig8**2
         else
@@ -2284,11 +2307,22 @@
             dlnk=lnk-lnko
         end if
         powers = ScalarPower(k,power_ix)
+!FGmod-----------------------------------------------
+!write(*,*) 'powers', powers
+!----------------------------------------------------
         dsig8=(win*k**2)**2*powers*dsig8
+!FGmod-----------------------------------------------
+!write(*,*) 'dsig8', dsig8
+!----------------------------------------------------
         sig8=sig8+(dsig8+dsig8o)*dlnk/2
+!FGmod-----------------------------------------------
+!write(*,*) 'fattore additivo', (dsig8+dsig8o)*dlnk/2
+!write(*,*) 'sig8', sig8
+!----------------------------------------------------
         dsig8o=dsig8
-        lnko=lnk
+        lnko=lnk   
     end do
+
 
     if (present(root)) then
         if (root) sig8 =sqrt(sig8)
@@ -2296,6 +2330,7 @@
         sig8 =sqrt(sig8)
     end if
     outvals(1:CP%Transfer%PK_num_redshifts) = sig8
+
 
     end subroutine Transfer_Get_SigmaR
 
@@ -3238,7 +3273,7 @@
     subroutine GetBackgroundEvolution(ntimes, times, outputs)
     integer, intent(in) :: ntimes
     real(dl), intent(in) :: times(ntimes)
-    real(dl) :: outputs(4, ntimes)
+    real(dl) :: outputs(5, ntimes)
     real(dl) spline_data(nthermo), ddxe(nthermo), ddTb(nthermo)
     real(dl) :: d, tau, cs2b, opacity, vis, Tbaryon
     integer i, ix
