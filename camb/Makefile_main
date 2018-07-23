@@ -41,7 +41,7 @@ HEALPIXLD     = -L$(HEALPIXDIR)/lib -lhealpix -L$(FITSDIR) -l$(FITSLIB)
 
 CAMBOBJ       =  $(OUTPUT_DIR)/constants.o  $(OUTPUT_DIR)/utils.o $(EXTCAMBFILES)  $(OUTPUT_DIR)/subroutines.o  \
 	$(OUTPUT_DIR)/inifile.o  $(OUTPUT_DIR)/$(POWERSPECTRUM).o  $(OUTPUT_DIR)/$(RECOMBINATION).o \
-	$(OUTPUT_DIR)/$(REIONIZATION).o $(OUTPUT_DIR)/modules.o $(OUTPUT_DIR)/binnedw.o $(OUTPUT_DIR)/bessels.o $(OUTPUT_DIR)/$(EQUATIONS).o \
+	$(OUTPUT_DIR)/$(REIONIZATION).o $(OUTPUT_DIR)/modules.o $(OUTPUT_DIR)/binnedw.o $(OUTPUT_DIR)/binnedMG.o $(OUTPUT_DIR)/bessels.o $(OUTPUT_DIR)/$(EQUATIONS).o \
 	$(OUTPUT_DIR)/$(NONLINEAR).o $(OUTPUT_DIR)/lensing.o $(OUTPUT_DIR)/$(BISPECTRUM).o $(OUTPUT_DIR)/cmbmain.o \
 	$(OUTPUT_DIR)/camb.o
 
@@ -94,6 +94,7 @@ $(OUTPUT_DIR)/$(REIONIZATION).o: $(OUTPUT_DIR)/constants.o $(OUTPUT_DIR)/inifile
 $(OUTPUT_DIR)/modules.o: $(OUTPUT_DIR)/$(REIONIZATION).o $(OUTPUT_DIR)/$(POWERSPECTRUM).o $(OUTPUT_DIR)/$(RECOMBINATION).o
 $(OUTPUT_DIR)/bessels.o: $(OUTPUT_DIR)/modules.o
 $(OUTPUT_DIR)/binnedw.o: $(OUTPUT_DIR)/modules.o
+$(OUTPUT_DIR)/binnedMG.o: $(OUTPUT_DIR)/modules.o
 $(OUTPUT_DIR)/$(EQUATIONS).o: $(OUTPUT_DIR)/bessels.o
 $(OUTPUT_DIR)/$(NONLINEAR).o:  $(OUTPUT_DIR)/modules.o $(OUTPUT_DIR)/$(EQUATIONS).o
 $(OUTPUT_DIR)/lensing.o: $(OUTPUT_DIR)/bessels.o
@@ -109,6 +110,7 @@ $(DLL_DIR)/$(REIONIZATION).o: $(DLL_DIR)/constants.o $(DLL_DIR)/inifile.o
 $(DLL_DIR)/modules.o: $(DLL_DIR)/$(REIONIZATION).o $(DLL_DIR)/$(POWERSPECTRUM).o $(DLL_DIR)/$(RECOMBINATION).o
 $(DLL_DIR)/bessels.o: $(DLL_DIR)/modules.o
 $(DLL_DIR)/binnedw.o: $(DLL_DIR)/modules.o
+$(DLL_DIR)/binnedMG.o: $(DLL_DIR)/modules.o
 $(DLL_DIR)/$(EQUATIONS).o: $(DLL_DIR)/bessels.o
 $(DLL_DIR)/$(NONLINEAR).o:  $(DLL_DIR)/modules.o $(DLL_DIR)/$(EQUATIONS).o
 $(DLL_DIR)/lensing.o: $(DLL_DIR)/bessels.o
