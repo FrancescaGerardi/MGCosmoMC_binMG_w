@@ -272,7 +272,7 @@ end if
        write(*,*) 'final redshift for ODE (',P%endred,') is lower than last bin margin ',P%zb(P%nb)
        write(*,*) 'You need final redshift to be higher. Fix this and re-run the code. '
        stop
-    end i
+    end if
 
     !reading specific parameters for different models
     if (P%mode.eq.2) P%s= Ini_Read_Double('smooth_factor',10._dl)
