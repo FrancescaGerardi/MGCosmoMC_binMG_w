@@ -120,13 +120,17 @@
         real(mcp) reserved(5)
         real(mcp) :: thetaCMB !MMmod: added to use theta as derived parameter instead of H0
         !MMmod: binned w------------------------------------
-        real(mcp), dimension(:), allocatable ::   binz, binw
+        real(mcp), dimension(:), allocatable ::   bina, binw
         real(mcp) :: binw0
         real    ::   corr_l
         integer :: smoothfactor,mode, numbins
         !---------------------------------------------------
         
 !------MG
+!FGmod
+ integer model
+ real GRtrans
+!--------
  real B1
  real lambda1_2
  real B2
@@ -145,6 +149,15 @@ real :: beta0, xi0, DilS, DilR     ! dilaton params
 real :: F_R0, FRn                  ! hu-sawicki model
 real :: A_2                        ! for simple dilaton.
 !-------MG 
+
+!FG:binning of mu and sigma
+real(mcp), dimension(:), allocatable ::   binamg, binmu, binsigma
+real(mcp) :: binmu0, binsigma0
+real    ::   corr_mu, corr_sig
+integer :: smooth_mu, smooth_s,modemg, numbinsmg
+!--------------------
+
+
 
     end Type CMBParams
 

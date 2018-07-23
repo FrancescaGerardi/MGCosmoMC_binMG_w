@@ -14,7 +14,8 @@ use mgvariables
         Transfer_SortAndIndexRedshifts,  &
         Recombination_Name, reionization_name, power_name, threadnum, version, tensor_param_rpivot
 !--------MG
-!,model, B1, lambda1_2, B2, lambda2_2, ss, GRtrans, MGQfix, MGRfix, Qnot, Rnot, sss,Linder_gamma
+!        model, GRtrans
+!        model, B1, lambda1_2, B2, lambda2_2, ss, GRtrans, MGQfix, MGRfix, Qnot, Rnot, sss,Linder_gamma
 !--------MG
 
 
@@ -106,6 +107,11 @@ use mgvariables
     w_lam = CMB%w
     wa_ppf = CMB%wa
 !----- MG 
+
+!FGmod
+ model = CMB%model 
+ GRtrans = CMB%GRtrans 
+!----------------
 B1 = CMB%B1
 lambda1_2 = CMB%lambda1_2
 B2 = CMB%B2
@@ -145,16 +151,38 @@ FRn = CMB%FRn
     !MMmod: binned w ----------------------------
     P%nb=CMB%numbins
     P%w0=CMB%binw0
-    if (.not.allocated(P%zb)) allocate(P%zb(P%nb),P%wb(P%nb))
+    if (.not.allocated(P%ab)) allocate(P%wb(P%nb),P%ab(P%nb),P%zb(P%nb))
     do i=1,P%nb
-       P%zb(i) = CMB%binz(i)
+       P%ab(i) = CMB%bina(i)
+       P%zb(i) = -1 + 1._dl/CMB%bina(i)
        P%wb(i) = CMB%binw(i)
     end do
     P%corrlen=CMB%corr_l
 
     P%s=CMB%smoothfactor
-    P%model=CMB%mode
+    P%mode=CMB%mode
     !--------------------------------------------
+
+    !FGmod: binned mu and sigma----------------------------
+    P%nbmg=CMB%numbinsmg
+    P%mu0=CMB%binmu0
+    P%sig0=CMB%binsigma0
+    if (.not.allocated(P%abmg)) allocate(P%abmg(P%nb),P%zbmg(P%nb),P%mb(P%nb),P%sb(P%nb))
+    do i=1,P%nb
+       P%abmg(i) = CMB%binamg(i)
+       P%zbmg(i) = -1 + 1._dl/CMB%binamg(i)  
+       P%mb(i) = CMB%binmu(i)       
+       P%sb(i) = CMB%binsigma(i)
+    end do
+    P%mcorr=CMB%corr_mu
+    P%scorr=CMB%corr_sig
+
+    P%ms=CMB%smooth_mu   
+    P%ss=CMB%smooth_s
+   
+    P%modemg=CMB%modemg
+    !--------------------------------------------
+
 
     if (CMB%omnuh2>0) then
         call CAMB_SetNeutrinoHierarchy(P, CMB%omnuh2, CMB%omnuh2_sterile, CMB%nnu, &

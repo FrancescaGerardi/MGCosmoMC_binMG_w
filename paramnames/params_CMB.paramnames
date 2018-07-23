@@ -35,18 +35,37 @@ DilR          r_{dil}
 log10F_R0     \log_{10}  f_{R, 0}
 FRn           n_{f(R)}
 -log10A_2     - \log_{10} A_2
+binmu0        mu0
+binsigma0     sig0
+binamg1       amg1
+binmu1        mu1
+binsigma1     sig1
+binamg2       amg2
+binmu2        mu2
+binsigma2     sig2
+binamg3       amg3
+binmu3        mu3
+binsigma3     sig3
+binamg4       amg4
+binmu4        mu4
+binsigma4     sig4
+corr_mu       mcorr
+corr_sigma    scorr
+smooth_mu     sm
+smooth_sigma  ss
+modemg        modemg
 binw0         w0
-binz1         z1
+bina1         a1
 binw1         w1
-binz2         z2
+bina2         a2
 binw2         w2
-binz3         z3
+bina3         a3
 binw3         w3
-binz4         z4
+bina4         a4
 binw4         w4
 corr_l        l
 smoothfactor  sf
-mode          model
+mode          mode
 logA          {\rm{ln}}(10^{10} A_s)
 ns            n_s	    #beware that pivot scale can change in .ini file
 nrun          n_{\rm run}

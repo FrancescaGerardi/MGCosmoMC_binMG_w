@@ -3,7 +3,6 @@ omegach2	\Omega_c h^2
 theta	100\theta_{MC}
 tau	\tau
 log10F_R0	\log_{10}  f_{R, 0}
-binw0	w0
 binw1	w1
 binw2	w2
 binw3	w3

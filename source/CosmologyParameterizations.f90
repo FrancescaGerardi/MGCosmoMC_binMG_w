@@ -17,7 +17,10 @@
     private
 
     !MMmod: binned w
-    integer :: init_nbin
+    integer :: init_nbin_w
+    !FGmod: binned mu and sigma
+    integer :: init_nbin_MG, model  !model is the model for modified gravity, not the model of the reconstruction for mu and sigma
+    real :: GRTrans
 
     Type, extends(TCosmologyParameterization) :: ThetaParameterization
         real(mcp) :: H0_min = 40, H0_max = 100
@@ -56,7 +59,11 @@
     call Ini%Read('use_min_zre',this%use_min_zre)
     call Ini%Read('sterile_mphys_max',this%sterile_mphys_max)
     !MMmod: binned w------------------
-    call Ini%Read('numbins',init_nbin)
+    call Ini%Read('numbins',init_nbin_w)
+    !FGmod: binned mu and sigma 
+    call Ini%Read('numbinsmg',init_nbin_MG)
+    call Ini%Read('model',model)
+    call Ini%Read('GRTrans',GRtrans)
     !---------------------------------
     prior => Ini%Read_String('H0_prior',NotFoundFail=.false.)
     if (prior/='') then
@@ -79,9 +86,8 @@
     !set number of hard parameters, number of initial power spectrum parameters
 
 
-
 !MG+binned 
-call this%SetTheoryParameterNumbers(37+1+2*init_nbin+3, last_power_index)
+call this%SetTheoryParameterNumbers(37+(1+2*init_nbin_w+3)+(2+3*init_nbin_MG+5), last_power_index)
 !-------MG
 
 
@@ -302,7 +308,7 @@ use mgvariables
     Type(CMBParams) CMB
     real(mcp) h2,H0
     integer, optional :: error
-    integer :: i,j,k !MMmod: indexes
+    integer :: i,j,k,m !MMmod: indexes
 
     CMB%H0=H0
     if (firsttime) then
@@ -348,6 +354,12 @@ use mgvariables
 
 
 !------MG
+
+!FGmod-----
+ CMB%model = model
+ CMB%GRtrans = GRtrans
+!----------
+
 ! PREVIOUS VERSION MODELS PARAMS
  CMB%B1 = Params(17)
  CMB%lambda1_2 = 10.d0**Params(18)
@@ -385,22 +397,57 @@ use mgvariables
  CMB%A_2 = 10.d0**(- Params(37))
 !-------MG
 
+        !FGmod: binned mu and sigma--------------------------------------------------------
+        CMB%numbinsmg = init_nbin_MG
+        if (.not.allocated(CMB%binamg)) allocate(CMB%binamg(CMB%numbinsmg),CMB%binmu(CMB%numbinsmg),CMB%binsigma(CMB%numbinsmg))
+        CMB%binmu0 = Params(38)
+        CMB%binsigma0 = Params(38+1)
+        j=1
+        do i=1,CMB%numbinsmg
+!           write(*,*) 38+1+j
+           CMB%binamg(i) = Params(38+1+j)
+!           write(*,*) 38+1+j+1
+           CMB%binmu(i) = Params(38+1+j+1)
+!           write(*,*) 38+1+j+2
+           CMB%binsigma(i) = Params(38+1+j+2)
+           j = j+3
+        end do
+        j = j-1
+!        write(*,*) 38+1+j+1
+        CMB%corr_mu = Params(38+1+j+1)
+!        write(*,*) 38+1+j+2
+        CMB%corr_sig = Params(38+1+j+2)
+!        write(*,*) 38+1+j+3
+        CMB%smooth_mu= Params(38+1+j+3)
+!        write(*,*) 38+1+j+4
+        CMB%smooth_s= Params(38+1+j+4)
+!        write(*,*) 38+1+j+5
+        CMB%modemg      = Params(38+1+j+5)
+        !----------------------------------------------------------------------------------
 
         !FGmod: binned w-------------------------------------------------------------------
-        CMB%numbins = init_nbin
-        if (.not.allocated(CMB%binz)) allocate(CMB%binz(CMB%numbins),CMB%binw(CMB%numbins))
-        CMB%binw0 = Params(38)
+        CMB%numbins = init_nbin_w
+        if (.not.allocated(CMB%bina)) allocate(CMB%bina(CMB%numbins),CMB%binw(CMB%numbins))
+        m = (38+j+5)+2
+!        write(*,*) m
+        CMB%binw0 = Params(m)
         j=1
         do i=1,CMB%numbins
-           CMB%binz(i) = Params(38+j)
-           CMB%binw(i) = Params(38+j+1)
+!           write(*,*) m+j
+           CMB%bina(i) = Params(m+j)
+!           write(*,*) m+j+1
+           CMB%binw(i) = Params(m+j+1)
            j = j+2
         end do
         j = j-1
-        CMB%corr_l = Params(38+j+1)
-        CMB%smoothfactor= Params(38+j+2)
-        CMB%mode        = Params(38+j+3)
+!        write(*,*) m+j+1
+        CMB%corr_l = Params(m+j+1)
+!        write(*,*) m+j+2
+        CMB%smoothfactor= Params(m+j+2)
+!        write(*,*) m+j+3
+        CMB%mode        = Params(m+j+3)
         !----------------------------------------------------------------------------------
+
 
         call SetFast(Params,CMB)
     end if

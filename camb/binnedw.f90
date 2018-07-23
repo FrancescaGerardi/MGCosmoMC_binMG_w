@@ -4,8 +4,9 @@ use constants
 use ModelParams
 
       implicit none
-      logical, parameter :: debugging = .true.
-      real(dl), dimension(:),allocatable :: binned_z, binned_w, rhodeint !output arrays of GP reconstruction
+      logical, parameter :: debugging = .false.
+      real(dl), dimension(:),allocatable :: binned_a
+      real(dl), dimension(:),allocatable :: binned_z, binned_w,binned_red, rhodeint, redint !output arrays of GP reconstruction
       real(dl), dimension(:),allocatable :: b1, c1, d1                   !coefficients for interpolation
       real(dl), dimension(:),allocatable :: b2, c2, d2                   !coefficients for interpolation
       real(dl)    :: multitheta !double theta function for binning
@@ -13,8 +14,11 @@ use ModelParams
    
       !initializing global ODE solver parameters from CAMB
       real(dl), parameter :: initial_z = 0._dl
+      real(dl), parameter :: initial_a = 1._dl
       real(dl) :: final_z
-      integer, parameter  :: nsteps = 10000
+      real(dl) :: final_a
+      integer, parameter  :: nsteps = 100
+      real(dl) :: red_interval
 
       contains
 
@@ -33,7 +37,7 @@ use ModelParams
          z = -1+1._dl/(a+eps)
       end if
 
-      if (CP%model.eq.theta_bin) then        
+      if (CP%mode.eq.theta_bin) then        
          if (z.ge.CP%zb(CP%nb)) then
             wde = CP%wb(CP%nb)
          else
@@ -46,7 +50,7 @@ use ModelParams
          end if
          
 
-      else if (CP%model.eq.smooth_bin) then
+      else if (CP%mode.eq.smooth_bin) then
          if (z.ge.CP%zb(CP%nb)) then
             wde = CP%wb(CP%nb)
          else
@@ -60,7 +64,7 @@ use ModelParams
             end do
 
          end if
-      else if (CP%model.eq.GP) then
+      else if (CP%mode.eq.GP) then
          if ((z.ge.binned_z(1)).and.(z.le.binned_z(nsteps))) then
             wde = ispline(z, binned_z, binned_w, b1, c1, d1, nsteps)
          else
@@ -75,37 +79,33 @@ use ModelParams
       !The initial value of rhode is added later
       Type(CAMBparams) CP
       real(dl)              :: wde, rhode0, integral, wplus, wminus
-      integer,parameter     :: numint=1000, numarr=1000
-      real(dl), dimension(numint) :: redint
       integer               :: i,j,k
 
-      rhode0=3._dl*((1000*CP%H0/c)**2.)*CP%omegav
 
-      if ((CP%model.eq.theta_bin).or.(CP%model.eq.smooth_bin)) then
+!Binning for integration------------------
+      final_z=CP%zb(CP%nb)
 
-         do i=1,nsteps
-            binned_z(i)=(i-1)*(final_z)/(nsteps-1)
-         end do
-        
-      end if
+      if (debugging) write(*,*) final_z
 
-      do j=1, nsteps
-         integral = 0._dl
+      do i=1,nsteps
+         redint(i)=(i-1)*final_z/(nsteps-1)
+      end do
+      red_interval=final_z/(nsteps-1)     
 
-         do i=1,numint
-            redint(i)=(i-1)*binned_z(j)/(numint-1)
-         end do
- 
-         do i=1,numint-1
-            call get_wofz(CP, 1/(1+redint(i)), wminus)
-            call get_wofz(CP, 1/(1+redint(i+1)), wplus)
-            integral = integral + 0.5*((1+wplus)/(1+redint(i+1))+(1+wminus)/(1+redint(i)))*(binned_z(j)/(numint-1))
-         end do
+      do i=1,nsteps-1
+         binned_red(i)=(i+1-1)*final_z/(nsteps-1)
+      end do
 
+!-----------------------------------------
+
+      do j=1, nsteps-1   
+         call get_wofz(CP, 1._dl/(1+redint(j)), wminus)
+         call get_wofz(CP, 1._dl/(1+redint(j+1)), wplus)
+         integral = integral + 0.5*((1+wplus)/(1+redint(j+1))+(1+wminus)/(1+redint(j)))*(final_z/(nsteps-1))
          rhodeint(j) = exp(3._dl*integral)
       end do
 
-      call newspline(binned_z,rhodeint, b2, c2, d2, nsteps)
+      call newspline(binned_red,rhodeint, b2, c2, d2, nsteps-1)
 
       end subroutine get_integral_rhode
 
@@ -122,11 +122,11 @@ use ModelParams
       else
          z = -1+1._dl/(a+eps)
       end if
-      if (z.le.binned_z(nsteps)) then
-         rhode = ispline(z, binned_z, rhodeint, b2, c2, d2, nsteps)
+      if (z.le.redint(nsteps)) then
+         rhode = ispline(z, binned_red, rhodeint, b2, c2, d2, nsteps-1)
       else
-         call get_wofz(CP, 1/(1+binned_z(nsteps)), lastw)
-         rhode = ((1+z)/(1+binned_z(nsteps)))**(3*(1+lastw))*ispline(binned_z(nsteps), binned_z, rhodeint, b2, c2, d2, nsteps)
+         call get_wofz(CP, 1/(1+redint(nsteps)), lastw)
+         rhode = ((1+z)/(1+redint(nsteps)))**(3*(1+lastw))*ispline(redint(nsteps), binned_red, rhodeint, b2, c2, d2, nsteps-1)
       end if
 
       end subroutine get_rhode
@@ -136,35 +136,34 @@ use ModelParams
       Type(CAMBparams) CP
 
       !Interface with GP python script
-      character(LEN= 1000)                :: zbins
+      character(LEN= 1000)                :: abins
       character(LEN= 1000)                :: wbins
       character(LEN= 1000)                :: steps_de
-      character(LEN= 1000)                :: z_ini
-      character(LEN= 1000)                :: w0
-      character(LEN= 1000)                :: z_end
+      character(LEN= 1000)                :: a_ini
+      character(LEN= 1000)                :: wn
+      character(LEN= 1000)                :: a_end
       character(LEN= 1000)                :: lencorr
       character(LEN= 20)                  :: feature_file="tmp_GPqz_000000.dat"
       character(LEN=10000)                :: command_plus_arguments
-      real(dl), dimension(CP%nb)          :: gpreds
+      real(dl), dimension(CP%nb)          :: gpa !ora applico un gp ad a per poi convertirla in redshift
       integer :: status
       integer :: getpid
       integer :: system
       integer :: i,m,nlbins
       real(dl) :: redshift, wdetest, rhodetest, omegam, omegade,rhode0
-      real(dl) :: const
 
 
-      final_z   = CP%zb(CP%nb)
 
       !allocating arrays
-      if (allocated(binned_z) .eqv. .false.) allocate (binned_z(nsteps),binned_w(nsteps), rhodeint(nsteps))
+      if (allocated(binned_z) .eqv. .false.) allocate (binned_a(nsteps),binned_z(nsteps),binned_w(nsteps),binned_red(nsteps-1), rhodeint(nsteps), redint(nsteps))
       if (allocated(b1) .eqv. .false.) allocate (b1(nsteps), c1(nsteps), d1(nsteps))
       if (allocated(b2) .eqv. .false.) allocate (b2(nsteps), c2(nsteps), d2(nsteps))
+
 
       nlbins=(CP%nb)-1
 
       if (debugging) then
-         if ((CP%model.eq.theta_bin).or.(CP%model.eq.smooth_bin)) then
+         if ((CP%mode.eq.theta_bin).or.(CP%mode.eq.smooth_bin)) then
             write(*,*) 'num_bins=',CP%nb
             do i=1,CP%nb
                write(*,*) 'redshift',i,'=',CP%zb(i)
@@ -173,17 +172,23 @@ use ModelParams
          end if
       end if
 
+!provo la ricostruzione in a(z), poi otterrò comunque dei binnedz ma meno fitti: binnedz = -1 + 1/binneda
+!così posso usare la stessa funzione di correlazione della prior e non ho problemi di conversione in lunghezza di corr in redshift
+
+
 
       !Gaussian process interface
-      if (CP%model.eq.GP) then
+      if (CP%mode.eq.GP) then
 
          !Setting GP redshift to median redshift of each bin
-         gpreds(1) = CP%zb(1)/2
+         gpa(1) = (initial_a+CP%ab(1))/2
          do i=2,CP%nb
-            gpreds(i) = (CP%zb(i)+CP%zb(i-1))/2.
+            gpa(i) = (CP%ab(i-1)+CP%ab(i))/2.
          end do
+         !write(*,*) 'scale factors di input', CP%ab
+         !write(*,*) 'scale factors mediani', gpa
 
-
+      final_a   = gpa(CP%nb)
 
          !Creating command line
 
@@ -191,24 +196,26 @@ use ModelParams
 !         ipid = getpid()
          write (feature_file(11:16), "(Z6.6)") getpid()
          !1. Prepare command and launch it!
-         write(z_ini, "(E15.7)"      ) initial_z
-         write(z_end, "(E15.7)"      ) final_z
+         write(a_ini, "(E15.7)"      ) initial_a
+         write(a_end, "(E15.7)"      ) final_a
          write(steps_de, "(I10)"     ) nsteps
-         write(zbins, "(10E15.7)"   ) (gpreds(i),i=1,CP%nb)
+         write(abins, "(10E15.7)"   ) (gpa(i),i=1,CP%nb)
          write(wbins, "(10f15.7)"     ) (CP%wb(i),i=1,CP%nb) !python parser struggles with scientific notation negatives: using floats here
-         write(w0, "(10f15.7)"     ) (CP%w0)
+         write(wn, "(10f15.7)"     ) CP%w0
          write(lencorr, "(10E15.7)"  ) CP%corrlen
 
-         if (CP%model.eq.GP) then
+         !write(*,*) 'scale factors mediani', abins
+
+         if (CP%mode.eq.GP) then
             if (debugging) write(*,*) 'WORKING WITH GP'
             !here needs the call to script with no baseline
 
             if (debugging) write(*,*) 'WORKING WITH GP (with baseline)'
         
-            command_plus_arguments = "python GP.py --inired "//trim(adjustl(z_ini))//&
-            &" --endred "//trim(adjustl(z_end))//" --ODEsteps "//trim(adjustl(steps_de))// &
-            & " --redshifts "//trim(adjustl(zbins))// " --eos "//trim(adjustl(wbins))//&
-	    & " --eos0 "//trim(adjustl(w0))//&
+            command_plus_arguments = "python GP.py --inia "//trim(adjustl(a_ini))//&
+            &" --enda "//trim(adjustl(a_end))//" --ODEsteps "//trim(adjustl(steps_de))// &
+            & " --scalefactors "//trim(adjustl(abins))// " --eos "//trim(adjustl(wbins))//&
+	    & " --eosn "//trim(adjustl(wn))//&
             & " --l "//trim(adjustl(lencorr))// " --outfile " // feature_file
 
 
@@ -248,7 +255,7 @@ use ModelParams
          call newspline(binned_z,binned_w, b1, c1, d1, nsteps)
          !-----------------------------------------------------------
 
-     else if (CP%model.gt.3) then
+     else if (CP%mode.gt.3) then
          write(*,*) "THIS MODEL DOESN'T EXIST!!!!"
          stop
      end if
@@ -263,15 +270,14 @@ use ModelParams
          write(*,*) 'printing w(z)'
          open(40,file='printwde.dat')
          open(42,file='printomega.dat')
-         do m=1,101
-            redshift=(m-1)*10._dl/100
+         do m=1,1001
+            redshift=(m-1)*3._dl/1000
             call get_wofz(CP,1/(1+redshift), wdetest)
             call get_rhode(1/(1+redshift), rhodetest)
             rhode0=3._dl*((1000*CP%H0/c)**2.)*CP%omegav
             rhodetest = rhode0*rhodetest
-            const=(1000*CP%H0/c)
-            omegam = ((3*const**2.*(1-CP%omegav)*(1+redshift)**3._dl)/(rhodetest+3*const**2.*(1-CP%omegav)*(1+redshift)**3._dl))
-            omegade = (rhodetest/(rhodetest+3*const**2.*(1-CP%omegav)*(1+redshift)**3._dl))
+            omegam = ((3*(1000*CP%H0/c)**2.*(1-CP%omegav)*(1+redshift)**3._dl)/(rhodetest+3*(1000*CP%H0/c)**2.*(1-CP%omegav)*(1+redshift)**3._dl))
+            omegade = (rhodetest/(rhodetest+3*(1000*CP%H0/c)**2.*(1-CP%omegav)*(1+redshift)**3._dl))
             write(40,*) redshift, wdetest
             write(42,*) redshift, omegam, omegade 
          end do
@@ -417,3 +423,4 @@ end function ispline
   
 
 end module binnedw
+

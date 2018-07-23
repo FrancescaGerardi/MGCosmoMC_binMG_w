@@ -122,71 +122,107 @@
     real(mcp) function w_LnLike(this, CMB, DataParams)
     Class(wLikelihood) :: this
     Class(CMBParams) CMB
-    real(mcp) DataParams(:)                              !capire cos'è
+    real(mcp) DataParams(:)                            
 
-    integer :: i,j
-    real :: chi2, mean
-    real(dl), dimension(CMB%numbins)             :: diff_vec
-    real(dl), dimension(CMB%numbins,CMB%numbins) :: covmat, inv_covmat
-    real(dl), dimension(CMB%numbins)             :: autocorr
+    integer :: i,j,d
+    real :: chi2
+    real(dl), dimension(:), allocatable          :: diff_vec, wfid, wi, gpa
+    real(dl), dimension(:,:), allocatable        :: covmat, inv_covmat
+    real(dl), dimension(:), allocatable        :: autocorr
     real(dl)                                     :: distance, autodist
     integer, parameter                           :: exp_prior=1, CPZ_prior=2
     integer, parameter                           :: quintessence=1, GBD=2, horndeski=3
 
 
-    mean=0
+    if(CMB%mode.ne.3) then
+        d=CMB%numbins
+        allocate (diff_vec(d), wfid(d), wi(d), gpa(d))
+        allocate (covmat(d,d),inv_covmat(d,d),autocorr(d))
+        do i=1,CMB%numbins
+           wi(i)=CMB%binw(i)
+        end do
+        gpa(1) = (1._dl + CMB%bina(1))/2
+         do i=2,CMB%numbins
+            gpa(i) = (CMB%bina(i-1)+CMB%bina(i))/2.
+         end do
+    else
+        d=CMB%numbins+1
+        allocate (diff_vec(d), wfid(d), wi(d), gpa(d))
+        allocate (covmat(d,d),inv_covmat(d,d),autocorr(d))
+        wi(1)=CMB%binw0
+        do i=1,CMB%numbins
+           wi(i+1)=CMB%binw(i)
+        end do
+        gpa(1)=1._dl
+         do i=1,CMB%numbins
+            gpa(i+1) = (CMB%bina(i-1)+CMB%bina(i))/2.
+         end do
+    end if
 
+    if (debugging) write(*,*) 'il vettore scale factors e', gpa
+    if (debugging) write(*,*) 'la dimensione dei vettori e', d
+    if (debugging) write(*,*) 'il vettore v_w', wi
+    
+    
     !COMPUTING MEAN OF W_I VALUES-----------
-    do i=1,CMB%numbins
-       mean=mean+CMB%binw(i)
+    wfid(1) = (wi(1)+wi(2)+(-1))/3
+    do i=2,d
+       wfid(i)=(wi(i-1)+wi(i)+wi(i+1))/3
     end do
-    mean=mean/CMB%numbins
-    if (debugging) write(*,*) 'valore fiduciale', mean
+    wfid(d)= (wi(d-1)+wi(d))/2
+    if (debugging) write(*,*) 'il vettore v_wfid', wfid
 
 
-    if (debugging) write(*,*) 'la dimensione dei vettori e', CMB%numbins
-    if (debugging) write(*,*) 'il vettore v_w', CMB%binw(i)
-    if (debugging) write(*,*) 'il vettore v_wfid', mean
-
-    if (debugging) write(*,*) 'la matrice e', covmat
-
-    !COMPUTING ARRAY OF w_i-mean
-    do i=1,CMB%numbins
-       diff_vec(i) = CMB%binw(i)-mean
+    !COMPUTING ARRAY OF w_i-w_fid
+    do i=1,d
+       diff_vec(i) = wi(i)-wfid(i)
     end do
 
+    if (debugging) write(*,*) 'il vettore differenza e', diff_vec
 
     !COMPUTING AUTOCORRELATION
-    do i=1,CMB%numbins
+    do i=1,d
        if (this%modelclass.eq.quintessence) then
-          autodist = -1._dl+1._dl/(1+CMB%binz(i))
+          autodist = gpa(i)
+          if (debugging) write(*,*) 'quintessence autodistance', autodist
        else if ((this%modelclass.eq.GBD).or.(this%modelclass.eq.horndeski)) then
-          autodist = log(1._dl/(1+CMB%binz(i)))
+          autodist = log(gpa(i))
+          if (debugging) write(*,*) 'horndeski autodistance', autodist
        else
           write(*,*) 'MODEL CHOICE 1-3'
           write(*,*) 'YOUR CHOICE DOES NOT EXIST'
           stop
        end if
-       autocorr(i) = this%prior_alpha+this%prior_beta*exp(this%prior_gamma*autodist)   
+       autocorr(i) = this%prior_alpha+(this%prior_beta*(exp(this%prior_gamma*autodist)))   
+       if (debugging) write(*,*) 'autocorr',i, autocorr(i)
     end do
+
 
     !COMPUTING COV MAT AND ITS INVERSE
     if ((this%prior_shape.eq.CPZ_prior).or.(this%prior_shape.eq.exp_prior)) then
-       do i=1,CMB%numbins
-          do j=1,CMB%numbins
+       do i=1,d
+          do j=1,d
              if (this%modelclass.eq.quintessence) then
-                distance = abs((1./(1+CMB%binz(i)))-(1./(1+CMB%binz(j))))
+                distance = abs(gpa(i)-gpa(j))
+                if (debugging) write(*,*) 'quintessence distance', distance
              else if ((this%modelclass.eq.GBD).or.(this%modelclass.eq.horndeski)) then
-                distance = abs(log(1./(1+CMB%binz(i)))-log(1./(1+CMB%binz(j))))
+                distance = abs(log(gpa(i))-log(gpa(j)))
+                if (debugging) write(*,*) 'horndeski distance', distance
              else
                 write(*,*) 'MODEL CHOICE 1-3'
                 write(*,*) 'YOUR CHOICE DOES NOT EXIST'
                 stop
              end if
 	     if (this%prior_shape.eq.CPZ_prior) then
-             	covmat(i,j) = sqrt(autocorr(i)*autocorr(j))*1._dl/(1+((distance/this%prior_xi)**this%prior_n))
+            	covmat(i,j) = sqrt(autocorr(i)*autocorr(j))/(1+((distance/this%prior_xi)**this%prior_n))
+                if (debugging) write(*,*) 'autocorr',i, autocorr(i)
+                if (debugging) write(*,*) 'autocorr',j, autocorr(j)
+                if (debugging) write(*,*) 'CPZ Cor',i,j, 1._dl/(1+((distance/(this%prior_xi))**this%prior_n))
+                if (debugging) write(*,*) 'CPZ C',i,j, covmat(i,j)
 	     else
 		covmat(i,j) = sqrt(autocorr(i)*autocorr(j))*exp(-((distance/this%prior_xi)**this%prior_n))
+                if (debugging) write(*,*) 'exp Cor',i,j, exp(-((distance/this%prior_xi)**this%prior_n))
+                if (debugging) write(*,*) 'exp C',i,j, covmat(i,j)
 	     end if
           end do
        end do
@@ -196,19 +232,34 @@
        stop
     end if
 
+    if (debugging) write(*,*) 'la matrice e'
+    if (debugging) write(*,*) covmat
+
     inv_covmat(:,:) = covmat(:,:)
     call Matrix_Inverse(inv_covmat)
 
+    if (debugging) write(*,*) 'la matrice inversa dopo e'
+    if (debugging) write(*,*) inv_covmat
+
+
+    
     !COMPUTING CHI2
     chi2 = 0._dl
 
-    chi2 = dot_product( diff_vec, MatMul(inv_covmat,diff_vec))
+!    chi2 = dot_product( diff_vec, MatMul(inv_covmat,diff_vec))
 
-    if (debugging) then
-       open(78, file='chi2_priorwde.dat', status='unknown', position='append')
-       write(78,*) CMB%binw, diff_vec, chi2
-       close(78)
-    end if
+	do i=1,d
+		do j=1,d
+                        if (debugging) write(*,*) 'elemento', i, j, 'del chi2', diff_vec(i)*inv_covmat(i,j)*diff_vec(j)
+			chi2 = chi2 + diff_vec(i)*inv_covmat(i,j)*diff_vec(j)
+		end do
+	end do
+
+!    if (debugging) then
+!       open(78, file='chi2_priorwde.dat', status='unknown', position='append')
+!       write(78,*) CMB%binw, diff_vec, chi2
+!       close(78)
+!    end if
 
     w_Lnlike = chi2/2._dl 
 
