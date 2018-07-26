@@ -9,7 +9,7 @@
     private
 
     logical :: debugging=.false.
-    logical :: debugging_paramsprior=.true.
+    logical :: debugging_paramsprior=.false.
 
     !likelihood variables
     type, extends(TCosmoCalcLikelihood) :: wLikelihood
