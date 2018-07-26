@@ -84,11 +84,11 @@ sig_pred = sig_pred + base(a_sampling)
 
 
 #Plot the result: remove it from final verions
-fig= plt.figure(figsize=(14,12))
-plt.plot(a_sampling, sig_pred, label = 'l=%s'%l)
-plt.legend(fontsize=20)
-plt.scatter(a, sig)
-fig.savefig('test_figure_sigma_a.png')
+#fig= plt.figure(figsize=(14,12))
+#plt.plot(a_sampling, sig_pred, label = 'l=%s'%l)
+#plt.legend(fontsize=20)
+#plt.scatter(a, sig)
+#fig.savefig('test_figure_sigma_a.png')
 
 # print to file
 #f = open(filename,'mu')
