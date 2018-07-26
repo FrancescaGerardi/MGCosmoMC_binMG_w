@@ -2149,7 +2149,6 @@ if (tempmodel /= 0) then
 
     term3= (MG_mu * ( MG_gamma -1.d0)* adotoa - MG_gamma*MG_mudot - MG_gammadot*MG_mu )*MG_rhoDelta
 
-
     term4 = (2.d0)*(MG_mu*(MG_gamma - 1.d0)*adotoa - &
     (MG_gamma - 1.d0)*MG_mudot - MG_gammadot*MG_mu)* dgpi
 

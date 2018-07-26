@@ -43,25 +43,22 @@ sn = np.array(args.sigman)
 l = args.l[0]
 filename = args.outfile[0]
 
-a = np.array(args.scalefactors)#z_edge[:-1] + np.diff(z_edge)/2 #NH z is now the redshift in the middle of each bin
-ini=[inia]
-a_d=np.concatenate([ini,a])
-#print  a
-sig_d=np.concatenate([sn,sig])
-#print  sig
-
 nb=len(sig)
 #print nb
-a=np.zeros(nb+1)
-sig=np.zeros(nb+1)
-#RIORDINO IN MANIERA CRESCENTE --> redshift decrescente
-for i in range (nb+1):
-    #print i
-    a[i] = a_d[nb-i]
-    sig[i] = sig_d[nb-i]
-#print a
-#print sig
+a = np.array(args.scalefactors)#z_edge[:-1] + np.diff(z_edge)/2 #NH z is now the redshift in the middle of each bin
+ini=[inia]
+a=np.concatenate([ini,a])
+#print  a
+sig=np.concatenate([sn,sig])
+#print  sig
 
+
+
+#GP smoothed at last point
+sma=[a[nb]-0.001]
+a_gp=np.concatenate([a,sma])
+sms=[sig[nb]]
+sig_gp=np.concatenate([sig,sms])
 
 #defining the baseline -1
 base = lambda x: +1+x-x
@@ -70,31 +67,25 @@ base = lambda x: +1+x-x
 gp = GaussianProcessRegressor(kernel=RBF(l, (l, l)))
 
 #Fit --> Training
-g = gp.fit(a[:, np.newaxis], sig-base(a))
+g = gp.fit(a_gp[:, np.newaxis], sig_gp-base(a_gp))
 
 #Plotting points (if log use np.logspace)
-a_sampling = np.linspace(enda, inia, ODEsteps)
+a_sampling = np.linspace(inia, enda, ODEsteps)
 #print a_sampling
 
 #transforming a_sampling in z_sampling
 z_sampling=np.zeros(ODEsteps)
-a_rev=np.zeros(ODEsteps)
 for i in range (ODEsteps):
-    z_sampling[i]= -1 + 1/a_sampling[ODEsteps-1-i]
-    a_rev[i]=a_sampling[ODEsteps-1-i]
+    z_sampling[i]= -1 + 1/a_sampling[i]
 #print z_sampling
 #Predict points
-sig_pred_a, sigma = gp.predict(a_sampling[:, np.newaxis], return_std=True)
-sig_pred_a = sig_pred_a + base(a_sampling)
+sig_pred, sigma = gp.predict(a_sampling[:, np.newaxis], return_std=True)
+sig_pred = sig_pred + base(a_sampling)
 
-sig_pred=np.zeros(ODEsteps)
-for i in range (ODEsteps):
-    sig_pred[i]= sig_pred_a[ODEsteps-1-i]
-#print sig_pred
 
 #Plot the result: remove it from final verions
 fig= plt.figure(figsize=(14,12))
-plt.plot(a_sampling, sig_pred_a, label = 'l=%s'%l)
+plt.plot(a_sampling, sig_pred, label = 'l=%s'%l)
 plt.legend(fontsize=20)
 plt.scatter(a, sig)
 fig.savefig('test_figure_sigma_a.png')
@@ -104,7 +95,7 @@ fig.savefig('test_figure_sigma_a.png')
 # print len(z_sampling)
 #for i in range(0, ODEsteps):
 #    print >>f, z_sampling[i], mu_pred[i]
-np.savetxt(filename, np.array([a_rev,z_sampling, sig_pred]).T, fmt="%15.8e")
+np.savetxt(filename, np.array([z_sampling, sig_pred]).T, fmt="%15.8e")
 
 #f.close()
 

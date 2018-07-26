@@ -4,8 +4,7 @@ use constants
 use ModelParams
 
       implicit none
-      logical, parameter :: debugging = .false.
-      real(dl), dimension(:),allocatable :: binned_a
+      logical, parameter :: debugging = .true.
       real(dl), dimension(:),allocatable :: derivm, derivs, derivg
       real(dl), dimension(:),allocatable :: binned_z, binned_mu, binned_sigma  !output arrays of GP reconstruction
       real(dl), dimension(:),allocatable :: g1, c1, d1                         !coefficients for interpolation
@@ -16,12 +15,15 @@ use ModelParams
       real(dl)    :: multitheta !double theta function for binning
       integer  :: theta_bin=1, smooth_bin=2, GP=3
    
-      !initializing global ODE solver parameters from CAMB
-      real(dl), parameter :: initial_z = 0._dl
       real(dl), parameter :: initial_a = 1._dl
-      real(dl) :: final_z
       real(dl) :: final_a
       integer, parameter  :: nsteps = 100
+
+      real(dl), dimension(:),allocatable :: red !array to compute derivatives
+      real(dl) :: red_interval
+      real(dl) :: final_z
+      integer :: nsteps_derivs = 200      
+
 
       contains
 !Mu---------------------------------------------------------------------------------------------------------------------------------------
@@ -78,19 +80,33 @@ use ModelParams
       real(dl)              :: muplus, muminus
       integer               :: i,j,k
 
-         call get_mu(CP, binned_a(2), muplus)
-         call get_mu(CP, binned_a(1), muminus)
-         derivm(1) = (muplus - muminus)/(binned_a(2) - binned_a(1))
-         do j=2, nsteps-1
-               call get_mu(CP, binned_a(j+1), muplus)
-               call get_mu(CP, binned_a(j-1), muminus)
-               derivm(j) = (muplus - muminus)/(binned_a(j+1) - binned_a(j-1))
-         end do 
-         call get_mu(CP, binned_a(nsteps), muplus)
-         call get_mu(CP, binned_a(nsteps-1), muminus)
-         derivm(nsteps) = (muplus - muminus)/(binned_a(nsteps) - binned_a(nsteps-1))
 
-         call newspline(binned_z, derivm, g2, c2, d2, nsteps)
+!Binning for derivatives------------------
+         final_z=CP%zbmg(CP%nbmg)
+
+         do i=1,nsteps_derivs
+            red(i)=(i-1)*final_z/(nsteps_derivs-1)
+         end do
+         red_interval=final_z/(nsteps_derivs-1)     
+
+!-----------------------------------------
+
+         call get_mu(CP, 1/(1+red(2)), muplus)
+         call get_mu(CP, 1/(1+red(1)), muminus)
+         derivm(1) = (muplus - muminus)/red_interval
+         write(*,*) red(1), muminus, red(2), muplus
+         do j=2, nsteps_derivs-1
+               call get_mu(CP, 1/(1+red(j+1)), muplus)
+               call get_mu(CP, 1/(1+red(j-1)), muminus)
+               derivm(j) = (muplus - muminus)/(2*red_interval)
+         end do 
+         call get_mu(CP, 1/(1+red(nsteps_derivs)), muplus)
+         call get_mu(CP, 1/(1+red(nsteps_derivs-1)), muminus)
+         derivm(nsteps_derivs) = (muplus - muminus)/red_interval
+
+!         if (debugging) write(*,*) derivm
+
+         call newspline(red, derivm, g2, c2, d2, nsteps_derivs)
 
  
       end subroutine get_mu_derivs
@@ -130,8 +146,8 @@ use ModelParams
 !in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required
            end do      
       else
-         if (z.le.binned_z(nsteps)) then
-            dotmu = ispline(z, binned_z, derivm, g2, c2, d2, nsteps)
+         if (z.le.red(nsteps_derivs)) then
+            dotmu = ispline(z, red, derivm, g2, c2, d2, nsteps_derivs)
          else
             dotmu = 0
          end if
@@ -193,19 +209,29 @@ use ModelParams
       real(dl)              :: sigplus, sigminus
       integer               :: i,j,k
 
-         call get_sigma(CP, binned_a(2), sigplus)
-         call get_sigma(CP, binned_a(1), sigminus)
-         derivs(1) = (sigplus - sigminus)/(binned_a(2) - binned_a(1))        
-         do j=2, nsteps-1
-               call get_sigma(CP, binned_a(j+1), sigplus)
-               call get_sigma(CP, binned_a(j-1), sigminus)
-               derivs(j) = (sigplus - sigminus)/(binned_a(j+1) - binned_a(j-1))
-         end do
-         call get_sigma(CP, binned_a(nsteps), sigplus)
-         call get_sigma(CP, binned_a(nsteps-1), sigminus)
-         derivs(nsteps) = (sigplus - sigminus)/(binned_a(nsteps) - binned_a(nsteps-1))
 
-         call newspline(binned_z, derivs, g3, c3, d3, nsteps)
+!Binning for derivatives------------------
+         final_z=CP%zbmg(CP%nbmg)
+
+         do i=1,nsteps_derivs
+            red(i)=(i-1)*final_z/(nsteps_derivs-1)
+         end do
+         red_interval=final_z/(nsteps_derivs-1)     
+!-----------------------------------------
+
+         call get_sigma(CP, 1/(1+red(2)), sigplus)
+         call get_sigma(CP, 1/(1+red(1)), sigminus)
+         derivs(1) = (sigplus - sigminus)/red_interval        
+         do j=2, nsteps_derivs-1
+               call get_sigma(CP, 1/(1+red(j+1)), sigplus)
+               call get_sigma(CP, 1/(1+red(j-1)), sigminus)
+               derivs(j) = (sigplus - sigminus)/(2*red_interval)
+         end do
+         call get_sigma(CP, 1/(1+red(nsteps_derivs)), sigplus)
+         call get_sigma(CP, 1/(1+red(nsteps_derivs-1)), sigminus)
+         derivs(nsteps_derivs) = (sigplus - sigminus)/red_interval
+
+         call newspline(red, derivs, g3, c3, d3, nsteps_derivs)
 
       end subroutine get_sigma_derivs
 
@@ -243,8 +269,8 @@ use ModelParams
            end do    
 !in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required 
       else
-         if (z.le.binned_z(nsteps)) then
-            dotsigma = ispline(z, binned_z, derivs, g3, c3, d3, nsteps)
+         if (z.le.red(nsteps_derivs)) then
+            dotsigma = ispline(z, red, derivs, g3, c3, d3, nsteps_derivs)
          else
             dotsigma = 0
          end if
@@ -253,21 +279,51 @@ use ModelParams
       end subroutine get_dotsigma
 
 
-!DOTGAMMA--------------------------------------------------------------------------------------------------------
+!GAMMA--------------------------------------------------------------------------------------------------------
+
+      subroutine get_gamma(CP, a, gamm)
+      Type(CAMBparams) CP
+      real(dl), intent(in)  :: a
+      real(dl), intent(out) :: gamm
+      integer               :: i,j,k
+      real(dl)              :: mu, sigma
+
+      call get_mu(CP, a, mu)
+      call get_sigma(CP, a, sigma)
+
+      gamm =  (2._dl*sigma/mu)-1._dl 
+
+      end subroutine get_gamma
+      
+
 
       subroutine get_gamma_derivs(CP)
       Type(CAMBparams) CP
-      integer               :: i
-      
-!       call get_mu_derivs(CP)
-!       call get_sigma_derivs(CP)
+      integer               :: i,j
+      real(dl)              :: gamplus,gamminus
+     
+!Binning for derivatives------------------
+         final_z=CP%zbmg(CP%nbmg)
 
-
-         do i =1, nsteps
-            derivg(i) = 2*(derivs(i)-derivm(i))/(binned_mu(i)**2)
+         do i=1,nsteps_derivs
+            red(i)=(i-1)*final_z/(nsteps_derivs-1)
          end do
+         red_interval=final_z/(nsteps_derivs-1)     
+!-----------------------------------------
 
-         call newspline(binned_z, derivg, g5, c5, d5, nsteps)
+         call get_gamma(CP, 1/(1+red(2)), gamplus)
+         call get_gamma(CP, 1/(1+red(1)), gamminus)
+         derivg(1) = (gamplus - gamminus)/red_interval        
+         do j=2, nsteps_derivs-1
+               call get_gamma(CP, 1/(1+red(j+1)), gamplus)
+               call get_gamma(CP, 1/(1+red(j-1)), gamminus)
+               derivg(j) = (gamplus - gamminus)/(2*red_interval)
+         end do
+         call get_gamma(CP, 1/(1+red(nsteps_derivs)), gamplus)
+         call get_gamma(CP, 1/(1+red(nsteps_derivs-1)), gamminus)
+         derivg(nsteps_derivs) = (gamplus - gamminus)/red_interval
+
+         call newspline(red, derivg, g5, c5, d5, nsteps_derivs)
 
       end subroutine get_gamma_derivs  
 
@@ -276,10 +332,12 @@ use ModelParams
       real(dl), intent(out) :: dotgamma
       real(dl)              :: z
       real(dl), parameter   :: eps=1.e-12 !avoids 1/0
-      real(dl)              :: mu, dotmu, dotsigma
+      real(dl)              :: gammminus, gammplus
+      integer               :: i
+      real(dl), dimension(CP%nbmg+1)    :: inter_red, inter_der
 
       if (a.gt.0._dl) then
-         z = -1+1._dl/a
+        z = -1+1._dl/a
       else
          z = -1+1._dl/(a+eps)
       end if
@@ -287,23 +345,32 @@ use ModelParams
       if (CP%modemg .eq. theta_bin) then 
          write(*,*) 'STEP FUNCTION IS A BAD CHOICHE FOR DERIVATIVES! CHANGE IT'
       else if (CP%modemg .eq. smooth_bin) then
-         call get_mu(CP,a,mu)
-         call get_dotmu(a,dotmu)
-         call get_dotsigma(a,dotsigma)  
-         dotgamma = 2*(dotsigma-dotmu)/(mu**2)   
+!computing derivatives at middle redshifts 
+         inter_red(1) = CP%zbmg(1)/2
+         inter_der(1) = 0               
+         do i=1,CP%nbmg-1
+           inter_red(i+1) = (CP%zbmg(i+1)+CP%zbmg(i))/2
+           call get_gamma(CP, 1/(1+CP%zbmg(i)), gammminus)
+           call get_gamma(CP, 1/(1+CP%zbmg(i+1)), gammplus)
+           inter_der(i+1) = (gammplus-gammminus)/(CP%zbmg(i+1)-CP%zbmg(i))
+         end do  
+         inter_red(CP%nbmg+1) = CP%zbmg(CP%nbmg)
+         inter_der(CP%nbmg+1) = 0   
+!computive the partial derivative respect to the redshift
+           dotgamma = inter_der(1)
+           do i=1,CP%nbmg
+                dotgamma = dotgamma + (inter_der(i+1)-inter_der(i))/2 * (1+tanh( CP%ss*(z-inter_red(i+1))/(inter_red(i+1)-inter_red(i))  ) )
+           end do    
+!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required 
       else
-         if (z.le.binned_z(nsteps)) then
-            dotgamma = ispline(z, binned_z, derivg, g5, c5, d5, nsteps)
+         if (z.le.red(nsteps_derivs)) then
+            dotgamma = ispline(z, red, derivg, g5, c5, d5, nsteps_derivs)
          else
             dotgamma = 0
          end if
       end if
 
       end subroutine get_dotgamma      
-
-
-
-   
 
 
 !-----------------------------------------------------------------------------------------------------------------
@@ -332,13 +399,13 @@ use ModelParams
 
 
       !allocating arrays
-      if (allocated(binned_z) .eqv. .false.) allocate (binned_a(nsteps),binned_z(nsteps),binned_mu(nsteps),&
-           & binned_sigma(nsteps),derivm(nsteps),derivs(nsteps),derivg(nsteps))
+      if (allocated(binned_z) .eqv. .false.) allocate (binned_z(nsteps),binned_mu(nsteps),&
+           & binned_sigma(nsteps),derivm(nsteps_derivs),derivs(nsteps_derivs),derivg(nsteps_derivs), red(nsteps_derivs))
       if (allocated(g1) .eqv. .false.) allocate (g1(nsteps), c1(nsteps), d1(nsteps))
-      if (allocated(g2) .eqv. .false.) allocate (g2(nsteps), c2(nsteps), d2(nsteps))
-      if (allocated(g3) .eqv. .false.) allocate (g3(nsteps), c3(nsteps), d3(nsteps))
+      if (allocated(g2) .eqv. .false.) allocate (g2(nsteps_derivs), c2(nsteps_derivs), d2(nsteps_derivs))
+      if (allocated(g3) .eqv. .false.) allocate (g3(nsteps_derivs), c3(nsteps_derivs), d3(nsteps_derivs))
       if (allocated(g4) .eqv. .false.) allocate (g4(nsteps), c4(nsteps), d4(nsteps))
-      if (allocated(g5) .eqv. .false.) allocate (g5(nsteps), c5(nsteps), d5(nsteps))
+      if (allocated(g5) .eqv. .false.) allocate (g5(nsteps_derivs), c5(nsteps_derivs), d5(nsteps_derivs))
 
       nlbins=(CP%nbmg)-1
 
@@ -352,10 +419,6 @@ use ModelParams
             end do
          end if
       end if
-
-!provo la ricostruzione in a(z), poi otterrò comunque dei binnedz ma meno fitti: binnedz = -1 + 1/binneda
-!così posso usare la stessa funzione di correlazione della prior e non ho problemi di conversione in lunghezza di corr in redshift
-
 
 
       !Gaussian process interface
@@ -420,14 +483,15 @@ use ModelParams
          !Reading temporary file generated by GP script--------------
          open(unit=17, file=feature_file_mu, action='read')
          do i=1,nsteps
-            read(17, "(E15.8, 1X, E15.8, 1X, E15.8)", iostat=status) binned_a(i), binned_z(i), binned_mu(i)
+            read(17, "(E15.8, 1X, E15.8, 1X, E15.8)", iostat=status) binned_z(i), binned_mu(i)
             if (status>0) then
                print *, "Error reading the tmp mu(z) file."
                call abort
             end if
          end do
          close(17, status='delete')
-         
+
+
          !-----------------------------------------------------------
 
          !Setting interpolation for GP arrays------------------------
@@ -481,7 +545,7 @@ use ModelParams
          !Reading temporary file generated by GP script--------------
          open(unit=17, file=feature_file_sig, action='read')
          do i=1,nsteps
-            read(17, "(E15.8, 1X,E15.8, 1X, E15.8)", iostat=status) binned_a(i), binned_z(i), binned_sigma(i)
+            read(17, "(E15.8, 1X,E15.8, 1X, E15.8)", iostat=status) binned_z(i), binned_sigma(i)
             if (status>0) then
                print *, "Error reading the tmp sigma(z) file."
                call abort
@@ -520,22 +584,23 @@ use ModelParams
 
      if (debugging) then
          write(*,*) 'printing mu, sigma'
-         !open(40,file='printMG.dat')
-         open(58,file='test_dotsigma.dat') !, position='append')
-         open(57,file='test_dotmu.dat') !, position='append')
-         open(56,file='test_dotgamma.dat') !, position='append')
+         write(*,*) 'sono qui'
+         open(58,file='test_dotsigma.dat')
+         write(*,*) 'sono qui'  
+         open(57,file='test_dotmu.dat')
+         open(56,file='test_dotgamma.dat')
+
          do m=1,1001
-            redshift=(m-1)*3._dl/1000
+            redshift=(m-1)*3._dl/1000            
             call get_mu(CP,1/(1+redshift), mutest)
             call get_sigma(CP,1/(1+redshift), sigmatest)
+            call get_gamma(CP,1/(1+redshift), gammatest)
             call get_dotmu(1/(1+redshift), dotmutest)
             call get_dotsigma(1/(1+redshift), dotsigmatest)
-            !write(40,*) redshift, mutest, sigmatest
-            gammatest =  (2._dl*sigmatest/mutest)-1._dl 
             call get_dotgamma(1/(1+redshift), dotgammatest)
-            write(56,*) 1/(1+redshift), gammatest, dotgammatest
-            write(57,*) 1/(1+redshift), mutest, dotmutest
-            write(58,*) 1/(1+redshift), sigmatest, dotsigmatest
+            write(56,*) redshift, gammatest, dotgammatest
+            write(57,*) redshift, mutest, dotmutest
+            write(58,*) redshift, sigmatest, dotsigmatest
          end do
          !close(40)
          close(56)

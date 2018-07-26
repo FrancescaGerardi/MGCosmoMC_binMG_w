@@ -110,7 +110,9 @@ use mgvariables
 
 !FGmod
  model = CMB%model 
+write(*,*) model
  GRtrans = CMB%GRtrans 
+write(*,*) GRtrans
 !----------------
 B1 = CMB%B1
 lambda1_2 = CMB%lambda1_2
@@ -150,23 +152,34 @@ FRn = CMB%FRn
 
     !MMmod: binned w ----------------------------
     P%nb=CMB%numbins
+write(*,*) 'P%nb', P%nb
     P%w0=CMB%binw0
+write(*,*) 'P%w0', P%w0
     if (.not.allocated(P%ab)) allocate(P%wb(P%nb),P%ab(P%nb),P%zb(P%nb))
     do i=1,P%nb
        P%ab(i) = CMB%bina(i)
        P%zb(i) = -1 + 1._dl/CMB%bina(i)
        P%wb(i) = CMB%binw(i)
     end do
+write(*,*) 'P%ab', P%ab
+write(*,*) 'P%zb', P%zb
+write(*,*) 'P%wb', P%wb
     P%corrlen=CMB%corr_l
+write(*,*) 'P%corrlen', P%corrlen
 
     P%s=CMB%smoothfactor
+write(*,*) 'P%s', P%s
     P%mode=CMB%mode
+write(*,*) 'P%mode', P%mode
     !--------------------------------------------
 
     !FGmod: binned mu and sigma----------------------------
     P%nbmg=CMB%numbinsmg
+write(*,*) 'P%nbmg', P%nbmg
     P%mu0=CMB%binmu0
+write(*,*) 'P%mu0', P%mu0
     P%sig0=CMB%binsigma0
+write(*,*) 'P%sig0', P%sig0
     if (.not.allocated(P%abmg)) allocate(P%abmg(P%nb),P%zbmg(P%nb),P%mb(P%nb),P%sb(P%nb))
     do i=1,P%nb
        P%abmg(i) = CMB%binamg(i)
@@ -174,13 +187,22 @@ FRn = CMB%FRn
        P%mb(i) = CMB%binmu(i)       
        P%sb(i) = CMB%binsigma(i)
     end do
+write(*,*) 'P%abmg', P%abmg
+write(*,*) 'P%zbmg', P%zbmg
+write(*,*) 'P%mb', P%mb
+write(*,*) 'P%sb', P%sb
     P%mcorr=CMB%corr_mu
+write(*,*) 'P%mcorr', P%mcorr
     P%scorr=CMB%corr_sig
+write(*,*) 'P%scorr',  P%scorr
 
-    P%ms=CMB%smooth_mu   
+    P%ms=CMB%smooth_mu 
+write(*,*) 'P%ms', P%ms 
     P%ss=CMB%smooth_s
+write(*,*) 'P%ss', P%ss
    
     P%modemg=CMB%modemg
+write(*,*) 'P%modemg', P%modemg
     !--------------------------------------------
 
 

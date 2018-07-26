@@ -43,26 +43,22 @@ mn = np.array(args.mun)
 l = args.l[0]
 filename = args.outfile[0]
 
-a = np.array(args.scalefactors)#z_edge[:-1] + np.diff(z_edge)/2 #NH z is now the redshift in the middle of each bin
-ini=[inia]
-a_d=np.concatenate([ini,a])
-#print  a_d
-mu_d=np.concatenate([mn, mu])
-#print  mu_d
-
 nb=len(mu)
 #print nb
-a=np.zeros(nb+1)
-mu=np.zeros(nb+1)
-z=np.zeros(nb+1)
-#RIORDINO IN MANIERA CRESCENTE --> redshift decrescente
-for i in range (nb+1):
-    #print i
-    a[i] = a_d[nb-i]
-    mu[i] = mu_d[nb-i]
-    z[i]=-1+1/a[i]
-#print a
-#print mu
+
+a = np.array(args.scalefactors)#z_edge[:-1] + np.diff(z_edge)/2 #NH z is now the redshift in the middle of each bin
+ini=[inia]
+a=np.concatenate([ini,a])
+#print  a
+mu=np.concatenate([mn, mu])
+#print  mu
+
+
+#GP smoothed at last point
+sma=[a[nb]-0.001]
+a_gp=np.concatenate([a,sma])
+smm=[mu[nb]]
+mu_gp=np.concatenate([mu,smm])
 
 #defining the baseline -1
 base = lambda x: +1+x-x
@@ -71,64 +67,40 @@ base = lambda x: +1+x-x
 gp = GaussianProcessRegressor(kernel=RBF(l, (l, l)))
 
 #Fit --> Training
-g = gp.fit(a[:, np.newaxis], mu-base(a))
+g = gp.fit(a_gp[:, np.newaxis], mu_gp-base(a_gp))
 
 #print enda
 #print inia
 
 #Plotting points (if log use np.logspace)
-a_sampling = np.linspace(enda, inia, ODEsteps)
+a_sampling = np.linspace(inia, enda, ODEsteps)
 #print a_sampling
 
 #transforming a_sampling in z_sampling
 z_sampling=np.zeros(ODEsteps)
-a_rev=np.zeros(ODEsteps)
 for i in range (ODEsteps):
-    z_sampling[i]= -1 + 1/a_sampling[ODEsteps-1-i]
-    a_rev[i]=a_sampling[ODEsteps-1-i]
+    z_sampling[i]= -1 + 1/a_sampling[i]
 #print z_sampling
 #Predict points
-mu_pred_a, sigma = gp.predict(a_sampling[:, np.newaxis], return_std=True)
-mu_pred_a = mu_pred_a + base(a_sampling)
-
-mu_pred=np.zeros(ODEsteps)
-for i in range (ODEsteps):
-    mu_pred[i]= mu_pred_a[ODEsteps-1-i]
+mu_pred, sigma = gp.predict(a_sampling[:, np.newaxis], return_std=True)
+mu_pred = mu_pred + base(a_sampling)
 #print mu_pred
 
 #Plot the result: remove it from final verions
 fig= plt.figure(figsize=(14,12))
-plt.plot(a_sampling, mu_pred_a, label = 'l=%s'%l)
+plt.plot(a_sampling, mu_pred, label = 'l=%s'%l)
 plt.legend(fontsize=20)
 plt.scatter(a, mu)
 fig.savefig('test_figure_mu_a.png')
-
-fig= plt.figure(figsize=(14,12))
-plt.plot(z_sampling, mu_pred, label = 'l=%s'%l)
-plt.legend(fontsize=20)
-plt.scatter(z, mu)
-fig.savefig('test_figure_mu_z.png')
-
-#fig= plt.figure(figsize=(14,12))
-#plt.plot(a_rev, mu_pred, label = 'l=%s'%l)
-#plt.legend(fontsize=20)
-#plt.scatter(a, mu)
-#fig.savefig('test_figure_mu_arev.png')
-
-#fig= plt.figure(figsize=(14,12))
-#plt.plot(z_sampling, mu_pred, label = 'l=%s'%l)
-#plt.legend(fontsize=20)
-#plt.scatter(a, mu)
-#fig.savefig('test_figure_mu_z.png')
-
 
 # print to file
 #f = open(filename,'mu')
 # print len(z_sampling)
 #for i in range(0, ODEsteps):
 #    print >>f, z_sampling[i], mu_pred[i]
-np.savetxt(filename, np.array([a_rev,z_sampling, mu_pred]).T, fmt="%15.8e")
-
+np.savetxt(filename, np.array([z_sampling, mu_pred]).T, fmt="%15.8e")
+print z_sampling
+#print mu_pred
 #f.close()
 
 exit()
