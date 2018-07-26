@@ -87,11 +87,11 @@ mu_pred = mu_pred + base(a_sampling)
 #print mu_pred
 
 #Plot the result: remove it from final verions
-fig= plt.figure(figsize=(14,12))
-plt.plot(a_sampling, mu_pred, label = 'l=%s'%l)
-plt.legend(fontsize=20)
-plt.scatter(a, mu)
-fig.savefig('test_figure_mu_a.png')
+#fig= plt.figure(figsize=(14,12))
+#plt.plot(a_sampling, mu_pred, label = 'l=%s'%l)
+#plt.legend(fontsize=20)
+#plt.scatter(a, mu)
+#fig.savefig('test_figure_mu_a.png')
 
 # print to file
 #f = open(filename,'mu')
