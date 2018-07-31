@@ -17,7 +17,8 @@
     use wl
     use ElementAbundances
     !FGmod-------
-    use priorwde
+    use WDE_PRIOR
+    use priormg
     !------------    
     
     class(TSettingIni), intent(in) :: Ini
@@ -45,7 +46,8 @@
 
 
     !FGmod-------
-    call wLikelihood_Add(DataLikelihoods, Ini)
+    call WDELikelihood_Add(DataLikelihoods, Ini)
+    call mgLikelihood_Add(DataLikelihoods, Ini)
     !------------
 
     end subroutine SetDataLikelihoods
