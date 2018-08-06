@@ -58,10 +58,19 @@ use ModelParams
 
 !OBS: the binned values of MG functions are given with respect to an inverse order of a, so the order in terms of the redshift have not to be inverted         
       else if (CP%modemg.eq.smooth_bin) then
+         if (z.ge.CP%zbmg(CP%nbmg)) then
+            mu = CP%mb(CP%nbmg)
+         else
             mu = CP%mb(1)
-            do i=1,CP%nbmg-1
-                  mu = mu + (CP%mb(i+1)-CP%mb(i))/2 * (1+tanh(CP%ms*(z-CP%zbmg(i+1))/(CP%zbmg(i+1)-CP%zbmg(i))) )
+            do i=1,CP%nb-1
+               if (i.eq.1) then
+                  mu = mu + (CP%mb(i+1)-CP%mb(i))/2 * (1+tanh( CP%ms*(z-CP%zbmg(i))/((CP%zbmg(i))/2)  ) )
+               else
+                  mu = mu + (CP%mb(i+1)-CP%mb(i))/2 * (1+tanh( CP%ms*(z-CP%zbmg(i))/((CP%zbmg(i)-CP%zbmg(i-1))/2)  ) )
+               end if
             end do
+
+         end if
 
 
       else if (CP%modemg.eq.GP) then
@@ -188,10 +197,19 @@ use ModelParams
          end if
          
       else if (CP%modemg.eq.smooth_bin) then
+        if (z.ge.CP%zbmg(CP%nbmg)) then
+            sigma = CP%sb(CP%nbmg)
+         else
             sigma = CP%sb(1)
-            do i=1,CP%nbmg-1
-                  sigma = sigma + (CP%sb(i+1)-CP%sb(i))/2 * (1+tanh(CP%ss*(z-CP%zbmg(i+1))/(CP%zbmg(i+1)-CP%zbmg(i))) )
+            do i=1,CP%nb-1
+               if (i.eq.1) then
+                  sigma = sigma + (CP%sb(i+1)-CP%sb(i))/2 * (1+tanh( CP%ss*(z-CP%zbmg(i))/((CP%zbmg(i))/2)  ) )
+               else
+                  sigma = sigma + (CP%sb(i+1)-CP%sb(i))/2 * (1+tanh( CP%ss*(z-CP%zbmg(i))/((CP%zbmg(i)-CP%zbmg(i-1))/2)  ) )
+               end if
             end do
+
+         end if
 
       else if (CP%modemg.eq.GP) then
          if ((z.ge.binned_z(1)).and.(z.le.binned_z(nsteps))) then
