@@ -62,7 +62,7 @@ use ModelParams
             mu = CP%mb(CP%nbmg)
          else
             mu = CP%mb(1)
-            do i=1,CP%nb-1
+            do i=1,CP%nbmg-1
                if (i.eq.1) then
                   mu = mu + (CP%mb(i+1)-CP%mb(i))/2 * (1+tanh( CP%ms*(z-CP%zbmg(i))/((CP%zbmg(i))/2)  ) )
                else
@@ -201,7 +201,7 @@ use ModelParams
             sigma = CP%sb(CP%nbmg)
          else
             sigma = CP%sb(1)
-            do i=1,CP%nb-1
+            do i=1,CP%nbmg-1
                if (i.eq.1) then
                   sigma = sigma + (CP%sb(i+1)-CP%sb(i))/2 * (1+tanh( CP%ss*(z-CP%zbmg(i))/((CP%zbmg(i))/2)  ) )
                else
