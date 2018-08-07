@@ -4,7 +4,7 @@ use constants
 use ModelParams
 
       implicit none
-      logical, parameter :: debugging = .false.
+      logical, parameter :: debugging = .true.
       real(dl), dimension(:),allocatable :: derivm, derivs, derivg
       real(dl), dimension(:),allocatable :: binned_z, binned_mu, binned_sigma  !output arrays of GP reconstruction
       real(dl), dimension(:),allocatable :: g1, c1, d1                         !coefficients for interpolation
@@ -139,21 +139,26 @@ use ModelParams
       if (CP%modemg .eq. theta_bin) then 
          write(*,*) 'STEP FUNCTION IS A BAD CHOICHE FOR DERIVATIVES! CHANGE IT'
       else if (CP%modemg .eq. smooth_bin) then
-!computing derivatives at middle redshifts 
-         inter_red(1) = CP%zbmg(1)/2
-         inter_der(1) = 0               
-         do i=1,CP%nbmg-1
+!computing derivatives at middle redshifts   
+         inter_red(i+1) = CP%zbmg(1)/2
+         inter_der(i+1) = (CP%mb(2)-CP%mb(1))/(CP%zbmg(2)-CP%zbmg(1))              
+         do i=1,CP%nbmg-2
            inter_red(i+1) = (CP%zbmg(i+1)+CP%zbmg(i))/2
-           inter_der(i+1) = (CP%mb(i+1)-CP%mb(i))/(CP%zbmg(i+1)-CP%zbmg(i))
-         end do  
-         inter_red(CP%nbmg+1) = CP%zbmg(CP%nbmg)
-         inter_der(CP%nbmg+1) = 0   
-!computive the partial derivative respect to the redshift
-           dotmu = inter_der(1)
-           do i=1,CP%nbmg
-                dotmu = dotmu + (inter_der(i+1)-inter_der(i))/2 * (1+tanh( CP%ms*(z-inter_red(i+1))/(inter_red(i+1)-inter_red(i))) )
-!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required
-           end do      
+           inter_der(i+1) = (CP%mb(i+2)-CP%mb(i+1))/(CP%zbmg(i+2)-CP%zbmg(i+1))
+         end do    
+         inter_red(CP%nbmg) = CP%zbmg(CP%nbmg)
+         inter_der(CP%nbmg) = 0 
+!computive the partial derivative respect to the redshift 
+!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required         
+         if (z .lt. 0.002) then
+           dotmu = 0.d0
+         else
+           dotmu = (inter_der(1)+0)/2 + (inter_der(1)-0)/2 * tanh(((z-inter_red(1))/(inter_red(2)-inter_red(1)))*CP%ms)
+           do i=1,CP%nbmg-1
+              dotmu = dotmu + (inter_der(i+1)-inter_der(i))/2 * (1+tanh(((z-inter_red(i+1))/(inter_red(i+1)-inter_red(i)))*CP%ms))
+           end do
+         end if 
+
       else
          if (z.le.red(nsteps_derivs)) then
             dotmu = ispline(z, red, derivm, g2, c2, d2, nsteps_derivs)
@@ -271,21 +276,25 @@ use ModelParams
       if (CP%modemg .eq. theta_bin) then 
          write(*,*) 'STEP FUNCTION IS A BAD CHOICHE FOR DERIVATIVES! CHANGE IT'
       else if (CP%modemg .eq. smooth_bin) then
-!computing derivatives at middle redshifts 
-         inter_red(1) = CP%zbmg(1)/2
-         inter_der(1) = 0               
-         do i=1,CP%nbmg-1
+!computing derivatives at middle redshifts   
+         inter_red(i+1) = CP%zbmg(1)/2
+         inter_der(i+1) = (CP%sb(2)-CP%sb(1))/(CP%zbmg(2)-CP%zbmg(1))              
+         do i=1,CP%nbmg-2
            inter_red(i+1) = (CP%zbmg(i+1)+CP%zbmg(i))/2
-           inter_der(i+1) = (CP%sb(i+1)-CP%sb(i))/(CP%zbmg(i+1)-CP%zbmg(i))
-         end do  
-         inter_red(CP%nbmg+1) = CP%zbmg(CP%nbmg)
-         inter_der(CP%nbmg+1) = 0   
-!computive the partial derivative respect to the redshift
-           dotsigma = inter_der(1)
-           do i=1,CP%nbmg
-                dotsigma = dotsigma + (inter_der(i+1)-inter_der(i))/2 * (1+tanh( CP%ss*(z-inter_red(i+1))/(inter_red(i+1)-inter_red(i))  ) )
-           end do    
-!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required 
+           inter_der(i+1) = (CP%sb(i+2)-CP%sb(i+1))/(CP%zbmg(i+2)-CP%zbmg(i+1))
+         end do    
+         inter_red(CP%nbmg) = CP%zbmg(CP%nbmg)
+         inter_der(CP%nbmg) = 0 
+!computive the partial derivative respect to the redshift 
+!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required         
+         if (z .lt. 0.002) then
+           dotsigma = 0.d0
+         else
+           dotsigma = (inter_der(1)+0)/2 + (inter_der(1)-0)/2 * tanh(((z-inter_red(1))/(inter_red(2)-inter_red(1)))*CP%ss)
+           do i=1,CP%nbmg-1
+              dotsigma = dotsigma + (inter_der(i+1)-inter_der(i))/2 * (1+tanh(((z-inter_red(i+1))/(inter_red(i+1)-inter_red(i)))*CP%ss))
+           end do
+         end if 
       else
          if (z.le.red(nsteps_derivs)) then
             dotsigma = ispline(z, red, derivs, g3, c3, d3, nsteps_derivs)
@@ -363,23 +372,31 @@ use ModelParams
       if (CP%modemg .eq. theta_bin) then 
          write(*,*) 'STEP FUNCTION IS A BAD CHOICHE FOR DERIVATIVES! CHANGE IT'
       else if (CP%modemg .eq. smooth_bin) then
-!computing derivatives at middle redshifts 
-         inter_red(1) = CP%zbmg(1)/2
-         inter_der(1) = 0               
-         do i=1,CP%nbmg-1
+
+!computing derivatives at middle redshifts   
+         inter_red(i+1) = CP%zbmg(1)/2
+         call get_gamma(CP, 1/(1+CP%zbmg(1)), gammminus)
+         call get_gamma(CP, 1/(1+CP%zbmg(2)), gammplus)
+         inter_der(i+1) = (gammplus-gammminus)/(CP%zbmg(2)-CP%zbmg(1))              
+         do i=1,CP%nbmg-2
            inter_red(i+1) = (CP%zbmg(i+1)+CP%zbmg(i))/2
-           call get_gamma(CP, 1/(1+CP%zbmg(i)), gammminus)
-           call get_gamma(CP, 1/(1+CP%zbmg(i+1)), gammplus)
-           inter_der(i+1) = (gammplus-gammminus)/(CP%zbmg(i+1)-CP%zbmg(i))
-         end do  
-         inter_red(CP%nbmg+1) = CP%zbmg(CP%nbmg)
-         inter_der(CP%nbmg+1) = 0   
-!computive the partial derivative respect to the redshift
-           dotgamma = inter_der(1)
-           do i=1,CP%nbmg
-                dotgamma = dotgamma + (inter_der(i+1)-inter_der(i))/2 * (1+tanh( CP%ss*(z-inter_red(i+1))/(inter_red(i+1)-inter_red(i))  ) )
-           end do    
-!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required 
+           call get_gamma(CP, 1/(1+CP%zbmg(i+1)), gammminus)
+           call get_gamma(CP, 1/(1+CP%zbmg(i+2)), gammplus)
+           inter_der(i+1) = (gammplus-gammminus)/(CP%zbmg(i+2)-CP%zbmg(i+1))
+         end do    
+         inter_red(CP%nbmg) = CP%zbmg(CP%nbmg)
+         inter_der(CP%nbmg) = 0 
+!computive the partial derivative respect to the redshift 
+!in equations_ppf.f90 computing the partial derivative respect to the scale factor, which is the one required         
+         if (z .lt. 0.002) then
+           dotgamma = 0.d0
+         else
+           dotgamma = (inter_der(1)+0)/2 + (inter_der(1)-0)/2 * tanh(((z-inter_red(1))/(inter_red(2)-inter_red(1)))*CP%ss)
+           do i=1,CP%nbmg-1
+              dotgamma = dotgamma + (inter_der(i+1)-inter_der(i))/2 * (1+tanh(((z-inter_red(i+1))/(inter_red(i+1)-inter_red(i)))*CP%ss))
+           end do
+         end if 
+
       else
          if (z.le.red(nsteps_derivs)) then
             dotgamma = ispline(z, red, derivg, g5, c5, d5, nsteps_derivs)
