@@ -34,10 +34,10 @@
 
        this%name= Ini%Read_String('priormg_name')
        !CORRELATION PARAMETERS
-	   	this%prior_n_mu        = 1.72
-	        this%prior_xi_mu       = 0.32
-		this%prior_n_sigma     = 1.67
-	        this%prior_xi_sigma    = 0.35
+	   	this%prior_n_mu        = 1.74
+	        this%prior_xi_mu       = 0.31
+		this%prior_n_sigma     = 1.7
+	        this%prior_xi_sigma    = 0.38
 
        !AUTOCORRELATION PARAMETERS
        this%needs_background_functions = .true.
