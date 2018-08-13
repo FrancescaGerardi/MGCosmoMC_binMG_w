@@ -60,8 +60,6 @@
     real(dl), dimension(:), allocatable          :: autocorrm, autocorrs
     real(dl)                                     :: distancemg, autodistmg
 
-write(*,*) 'sono in priormg'
-
     if(CMB%modemg.ne.3) then
         d=CMB%numbinsmg
         allocate (diff_vecm(d),diff_vecs(d), mfid(d), sfid(d), mui(d), sigi(d), gpamg(d))
